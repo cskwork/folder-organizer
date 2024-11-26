@@ -2,7 +2,8 @@
     "default_model": "llama3.1:latest",
     "ollama_url": "http://localhost:11434/api/generate",
     "max_file_size_mb": 1,
-    "backup_enabled": true,
+    "backup_enabled": false,
+    "date_organization_enabled": false,
     "language": "korean", 
     "category_names": {
         "english": {
