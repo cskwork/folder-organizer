@@ -1,0 +1,71 @@
+{
+    "default_model": "llama3.1:latest",
+    "ollama_url": "http://localhost:11434/api/generate",
+    "max_file_size_mb": 1,
+    "backup_enabled": true,
+    "language": "korean", 
+    "category_names": {
+        "english": {
+            "projects": {
+                "active": "current_projects",
+                "next": "upcoming_projects"
+            },
+            "areas": {
+                "work": "work",
+                "personal": "personal",
+                "health": "health"
+            },
+            "resources": {
+                "references": "references",
+                "learning": "learning",
+                "tools": "tools"
+            },
+            "archives": {
+                "done": "completed",
+                "old": "old_files"
+            },
+            "other": {
+                "other": "other"
+            }
+        },
+        "korean": {
+            "projects": {
+                "active": "현재_프로젝트",
+                "next": "예정_프로젝트"
+            },
+            "areas": {
+                "work": "업무",
+                "personal": "개인",
+                "health": "건강"
+            },
+            "resources": {
+                "references": "참고자료",
+                "learning": "학습",
+                "tools": "도구"
+            },
+            "archives": {
+                "done": "완료됨",
+                "old": "이전_파일"
+            },
+            "other": {
+                "other": "기타"
+            }
+        }
+    },
+    "supported_extensions": {
+        "documents": [".txt", ".doc", ".docx", ".pdf", ".rtf", ".odt", ".md", ".csv", ".json", ".xml"],
+        "images": [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".webp", ".svg"],
+        "videos": [".mp4", ".avi", ".mov", ".wmv", ".flv", ".mkv", ".webm"],
+        "audio": [".mp3", ".wav", ".ogg", ".m4a", ".flac", ".aac"],
+        "archives": [".zip", ".rar", ".7z", ".tar", ".gz", ".bz2"],
+        "code": [".py", ".js", ".html", ".css", ".java", ".cpp", ".h", ".cs", ".php"],
+        "data": [".xlsx", ".xls", ".db", ".sqlite", ".sql"]
+    },
+    "organization_rules": {
+        "use_content_analysis": true,
+        "use_file_type": true,
+        "use_date": true,
+        "date_format": "%Y-%m",
+        "min_confidence_score": 0.7
+    }
+}
