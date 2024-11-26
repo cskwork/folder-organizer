@@ -124,61 +124,80 @@ class FileOrganizer:
         # If no category determined or content analysis failed, return "other"
         return "other", "other"
 
-    def organize_directory(self, source_dir: str, analysis_results: Dict[str, Any],
-                         use_content: bool = True, use_type: bool = True,
-                         use_date: bool = True) -> None:
+    def remove_empty_folders(self, directory: str):
+        """
+        Remove all empty folders in the given directory recursively
+        Returns the number of folders removed
+        """
+        removed_count = 0
+        for root, dirs, files in os.walk(directory, topdown=False):
+            for dir_name in dirs:
+                dir_path = os.path.join(root, dir_name)
+                try:
+                    # Check if directory is empty (no files and no subdirectories)
+                    if not os.listdir(dir_path):
+                        os.rmdir(dir_path)
+                        removed_count += 1
+                except Exception as e:
+                    print(f"Error removing directory {dir_path}: {str(e)}")
+        return removed_count
+
+    def organize_files(self, source_dir: str, analysis_results: Dict[str, Any],
+                      remove_empty: bool = False, progress_callback=None) -> None:
         """
         Organize files based on analysis results
         """
-        self.stop_flag.clear()
-        
+        if self.config_manager.get_setting("backup_enabled", False):
+            try:
+                backup_dir = self.create_backup(source_dir)
+                if progress_callback:
+                    progress_callback(0, f"Created backup at: {backup_dir}")
+            except Exception as e:
+                print(f"Failed to create backup: {str(e)}")
+
+        total_files = len(analysis_results)
+        processed = 0
+
         for file_path, analysis in analysis_results.items():
             if self.stop_flag.is_set():
                 break
-                
+
             try:
-                self._organize_file(file_path, analysis, source_dir,
-                                  use_content, use_type, use_date)
+                main_category, sub_category = self.determine_para_category(file_path, analysis)
+                category_path = self.get_para_category_name(main_category, sub_category)
+                
+                if category_path:
+                    target_dir = os.path.join(source_dir, category_path)
+                    os.makedirs(target_dir, exist_ok=True)
+                    
+                    target_path = os.path.join(target_dir, os.path.basename(file_path))
+                    # Handle file name conflicts
+                    if os.path.exists(target_path):
+                        base, ext = os.path.splitext(target_path)
+                        counter = 1
+                        while os.path.exists(f"{base}_{counter}{ext}"):
+                            counter += 1
+                        target_path = f"{base}_{counter}{ext}"
+                    
+                    shutil.move(file_path, target_path)
+                
+                processed += 1
+                if progress_callback:
+                    progress = (processed / total_files) * 100
+                    progress_callback(progress, f"Organizing: {os.path.basename(file_path)}")
+
             except Exception as e:
                 print(f"Error organizing {file_path}: {str(e)}")
                 continue
 
-    def _organize_file(self, file_path: str, analysis: Dict[str, Any],
-                      source_dir: str, use_content: bool, use_type: bool,
-                      use_date: bool) -> None:
-        """
-        Organize a single file based on its analysis using PARA method
-        """
-        # Base target directory is the source directory
-        target_dir = source_dir
-        
-        # Determine PARA categories
-        main_category, sub_category = self.determine_para_category(file_path, analysis)
-        
-        # Get localized category names
-        category_name = self.get_para_category_name(main_category, sub_category)
-        if category_name:
-            target_dir = os.path.join(target_dir, category_name)
-        
-        # Add date-based subdirectory if enabled
-        if use_date and 'created' in analysis:
-            date_str = datetime.fromisoformat(analysis['created']).strftime("%Y-%m")
-            target_dir = os.path.join(target_dir, date_str)
-        
-        # Create target directory if it doesn't exist
-        os.makedirs(target_dir, exist_ok=True)
-        
-        # Move the file
-        target_path = os.path.join(target_dir, os.path.basename(file_path))
-        
-        # Handle filename conflicts
-        counter = 1
-        while os.path.exists(target_path):
-            name, ext = os.path.splitext(os.path.basename(file_path))
-            target_path = os.path.join(target_dir, f"{name}_{counter}{ext}")
-            counter += 1
-        
-        shutil.move(file_path, target_path)
+        if remove_empty and not self.stop_flag.is_set():
+            if progress_callback:
+                progress_callback(100, "Removing empty folders...")
+            removed_count = self.remove_empty_folders(source_dir)
+            if progress_callback:
+                progress_callback(100, f"Completed. Removed {removed_count} empty folders.")
+        elif progress_callback:
+            progress_callback(100, "Organization complete")
 
     def stop(self):
         """

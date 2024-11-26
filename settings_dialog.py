@@ -91,14 +91,32 @@ class SettingsDialog(ctk.CTkToplevel):
                                            textvariable=self.confidence_var)
         self.confidence_entry.pack(side="left", fill="x", expand=True, padx=5)
         
-        # Backup settings
-        self.backup_frame = self._create_section_frame("Backup Settings")
+        # Backup setting
+        self.backup_frame = ctk.CTkFrame(self.rules_frame)
+        self.backup_frame.pack(fill="x", padx=5, pady=5)
         
-        self.backup_var = ctk.BooleanVar(
+        self.backup_var = ctk.BooleanVar(value=config_manager.get_setting("backup_enabled", False))
+        self.backup_checkbox = ctk.CTkCheckBox(self.backup_frame, text="Create Backup",
+                                             variable=self.backup_var)
+        self.backup_checkbox.pack(side="left", padx=5)
+        
+        # Empty folder removal setting
+        self.empty_folder_frame = ctk.CTkFrame(self.rules_frame)
+        self.empty_folder_frame.pack(fill="x", padx=5, pady=5)
+        
+        self.empty_folder_var = ctk.BooleanVar(value=config_manager.get_setting("remove_empty_folders", True))
+        self.empty_folder_checkbox = ctk.CTkCheckBox(self.empty_folder_frame, text="Remove Empty Folders",
+                                                   variable=self.empty_folder_var)
+        self.empty_folder_checkbox.pack(side="left", padx=5)
+        
+        # Backup settings
+        self.backup_settings_frame = self._create_section_frame("Backup Settings")
+        
+        self.backup_enabled_var = ctk.BooleanVar(
             value=config_manager.get_setting("backup_enabled", True))
-        self.backup_check = ctk.CTkCheckBox(self.backup_frame, text="Enable Backup",
-                                          variable=self.backup_var)
-        self.backup_check.pack(fill="x", padx=5, pady=5)
+        self.backup_enabled_check = ctk.CTkCheckBox(self.backup_settings_frame, text="Enable Backup",
+                                          variable=self.backup_enabled_var)
+        self.backup_enabled_check.pack(fill="x", padx=5, pady=5)
         
         # Buttons
         self.button_frame = ctk.CTkFrame(self)
@@ -130,7 +148,7 @@ class SettingsDialog(ctk.CTkToplevel):
             self.config_manager.set_setting("max_file_size_mb",
                                           float(self.size_var.get()))
             self.config_manager.set_setting("backup_enabled",
-                                          self.backup_var.get())
+                                          self.backup_enabled_var.get())
             self.config_manager.set_setting("language",
                                           self.language_var.get())
             
@@ -140,7 +158,8 @@ class SettingsDialog(ctk.CTkToplevel):
                 "use_file_type": self.type_var.get(),
                 "use_date": self.date_var.get(),
                 "date_format": self.date_format_var.get(),
-                "min_confidence_score": float(self.confidence_var.get())
+                "min_confidence_score": float(self.confidence_var.get()),
+                "remove_empty_folders": self.empty_folder_var.get()
             }
             self.config_manager.set_setting("organization_rules", rules)
             
