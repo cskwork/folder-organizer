@@ -4,52 +4,59 @@
     "max_file_size_mb": 1,
     "backup_enabled": false,
     "date_organization_enabled": false,
-    "language": "korean", 
+    "remove_empty_folders": true,
+    "language": "korean",
+    "parent_folders": {
+        "english": ["projects", "areas", "resources", "archives"],
+        "korean": ["프로젝트", "영역", "자료", "보관"]
+    },
     "category_names": {
         "english": {
             "projects": {
-                "active": "current_projects",
-                "next": "upcoming_projects"
+                "active": "projects/current_projects",
+                "next": "projects/upcoming_projects",
+                "other": "projects/other"
             },
             "areas": {
-                "work": "work",
-                "personal": "personal",
-                "health": "health"
+                "work": "areas/work",
+                "personal": "areas/personal",
+                "health": "areas/health",
+                "other": "areas/other"
             },
             "resources": {
-                "references": "references",
-                "learning": "learning",
-                "tools": "tools"
+                "references": "resources/references",
+                "learning": "resources/learning",
+                "tools": "resources/tools",
+                "other": "resources/other"
             },
             "archives": {
-                "done": "completed",
-                "old": "old_files"
-            },
-            "other": {
-                "other": "other"
+                "done": "archives/completed",
+                "old": "archives/old_files",
+                "other": "archives/other"
             }
         },
         "korean": {
             "projects": {
-                "active": "현재_프로젝트",
-                "next": "예정_프로젝트"
+                "active": "프로젝트/현재_프로젝트",
+                "next": "프로젝트/예정_프로젝트",
+                "other": "프로젝트/기타"
             },
             "areas": {
-                "work": "업무",
-                "personal": "개인",
-                "health": "건강"
+                "work": "영역/업무",
+                "personal": "영역/개인",
+                "health": "영역/건강",
+                "other": "영역/기타"
             },
             "resources": {
-                "references": "참고자료",
-                "learning": "학습",
-                "tools": "도구"
+                "references": "자료/참고자료",
+                "learning": "자료/학습",
+                "tools": "자료/도구",
+                "other": "자료/기타"
             },
             "archives": {
-                "done": "완료됨",
-                "old": "이전_파일"
-            },
-            "other": {
-                "other": "기타"
+                "done": "보관/완료됨",
+                "old": "보관/이전_파일",
+                "other": "보관/기타"
             }
         }
     },

@@ -30,12 +30,17 @@ class FileAnalyzer:
         }
 
     def analyze_directory(self, directory: str, use_content: bool = True,
-                         use_type: bool = True, use_date: bool = True) -> Dict[str, Any]:
+                         use_type: bool = True, use_date: bool = True,
+                         progress_callback=None) -> Dict[str, Any]:
         """
         Analyze all files in the directory and return analysis results
         """
         self.stop_flag.clear()
         results = {}
+        
+        # Count total files for progress tracking
+        total_files = sum([len(files) for _, _, files in os.walk(directory)])
+        processed_files = 0
         
         for root, _, files in os.walk(directory):
             if self.stop_flag.is_set():
@@ -48,9 +53,20 @@ class FileAnalyzer:
                 file_path = os.path.join(root, file)
                 try:
                     results[file_path] = self.analyze_file(file_path, use_content, use_type, use_date)
+                    processed_files += 1
+                    
+                    if progress_callback:
+                        progress = (processed_files / total_files) * 100
+                        status = f"Analyzing: {os.path.basename(file_path)} ({processed_files}/{total_files})"
+                        progress_callback(progress, status)
+                        
                 except Exception as e:
                     print(f"Error analyzing {file_path}: {str(e)}")
+                    processed_files += 1
                     continue
+        
+        if progress_callback:
+            progress_callback(100, "Analysis complete")
         
         return results
 

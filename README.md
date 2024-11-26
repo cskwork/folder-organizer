@@ -1,24 +1,22 @@
-# Intelligent File Organizer
+# Intelligent File Organizer (PARA)
 
-A Python-based intelligent file organization tool that uses Ollama LLM for content analysis and smart file categorization.
+An AI-powered file organization tool that automatically categorizes files using the PARA method (Projects, Areas, Resources, Archives) and content analysis.
 
 ## Features
 
-- GUI interface for easy interaction
-- Intelligent file analysis using Ollama LLM
-- Content-based file organization
-- File type and extension-based sorting
-- Date-based organization
-- Pattern recognition in file names
-- Safe file operations with backup functionality
-- Real-time progress tracking
-- Customizable organization rules
+- 🤖 AI-powered content analysis using Ollama LLM
+- 📁 PARA methodology-based organization
+- 🌏 Multilingual support (English/Korean)
+- 📄 Rich metadata extraction
+- 🎨 Modern GUI interface
+- 🔍 Intelligent content-based categorization
 
 ## Prerequisites
 
-- Python 3.8 or higher
-- Ollama installed and running locally
-- Windows 10 or higher
+- Python 3.10 or higher
+- Windows 10/11
+- [Ollama](https://ollama.ai/) installed and running locally
+- At least 8GB RAM recommended
 
 ## Installation
 
@@ -27,27 +25,33 @@ A Python-based intelligent file organization tool that uses Ollama LLM for conte
    ```bash
    pip install -r requirements.txt
    ```
-3. Ensure Ollama is installed and running with the Mistral model:
-   ```bash
-   ollama pull mistral
-   ```
+3. Install and start Ollama:
+   - Download from [ollama.ai](https://ollama.ai)
+   - Pull the required model:
+     ```bash
+     ollama pull llama2:3.1
+     ```
 
 ## Usage
 
-1. Run the application:
+1. Start the application:
    ```bash
    python main.py
    ```
-2. Select source directory
-3. Configure organization rules
-4. Start the organization process
+
+2. Using the application:
+   - Select source directory
+   - Click "Analyze" to start file analysis
+   - Review results
+   - Click "Organize" to begin file organization
 
 ## Configuration
 
-- Default model: Mistral
-- Supported file types: Documents, Images, Videos, Audio, Archives
-- Backup: Automatic backup before reorganization
-- Custom rules: Can be configured through the GUI
+Edit `config.json` to configure:
+- Language (english/korean)
+- AI model settings
+- File size limits
+- Backup options
 
 ## License
 
