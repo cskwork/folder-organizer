@@ -1,14 +1,29 @@
 import re
 from typing import Optional
-import MeCab
-from unidecode import unidecode
+import os
+import unidecode
 
 class KoreanTextHandler:
     """Handles Korean text processing and validation."""
     
     def __init__(self):
-        """Initialize MeCab tokenizer."""
-        self.mecab = MeCab.Tagger()
+        """Initialize Korean text handler with basic romanization mappings."""
+        # Basic mapping for common Korean syllables to roman letters
+        self.korean_to_roman = {
+            # Basic consonants
+            'ㄱ': 'g', 'ㄴ': 'n', 'ㄷ': 'd', 'ㄹ': 'r', 'ㅁ': 'm',
+            'ㅂ': 'b', 'ㅅ': 's', 'ㅇ': '', 'ㅈ': 'j', 'ㅊ': 'ch',
+            'ㅋ': 'k', 'ㅌ': 't', 'ㅍ': 'p', 'ㅎ': 'h',
+            # Basic vowels
+            '아': 'a', '어': 'eo', '오': 'o', '우': 'u', '으': 'eu',
+            '이': 'i', '애': 'ae', '에': 'e', '외': 'oe', '위': 'wi',
+            '야': 'ya', '여': 'yeo', '요': 'yo', '유': 'yu', '예': 'ye',
+            # Common syllables
+            '김': 'kim', '이': 'lee', '박': 'park', '최': 'choi', '정': 'jung',
+            '강': 'kang', '조': 'jo', '윤': 'yoon', '장': 'jang', '임': 'im',
+            '한': 'han', '오': 'oh', '서': 'seo', '신': 'shin', '권': 'kwon',
+            '황': 'hwang', '안': 'ahn', '송': 'song', '전': 'jeon', '홍': 'hong'
+        }
     
     def is_korean(self, text: str) -> bool:
         """Check if text contains Korean characters."""
@@ -21,26 +36,39 @@ class KoreanTextHandler:
         return bool(illegal_pattern.search(text))
     
     def romanize_korean(self, text: str) -> str:
-        """Convert Korean text to romanized form using MeCab."""
+        """Convert Korean text to romanized form using simple character mapping."""
         if not self.is_korean(text):
             return text
             
-        # Parse with MeCab
-        node = self.mecab.parseToNode(text)
-        romanized_parts = []
-        
-        while node:
-            if node.surface:  # Skip empty nodes
-                if self.is_korean(node.surface):
-                    # Get reading (if available) or use surface form
-                    reading = node.feature.split(',')[7] if len(node.feature.split(',')) > 7 else node.surface
-                    romanized = unidecode(reading)
-                    romanized_parts.append(romanized)
-                else:
-                    romanized_parts.append(node.surface)
-            node = node.next
+        try:
+            result = []
+            current_word = ''
             
-        return '-'.join(romanized_parts)
+            for char in text:
+                if self.is_korean(char):
+                    # Try to find direct mapping
+                    if char in self.korean_to_roman:
+                        current_word += self.korean_to_roman[char]
+                    else:
+                        # Fallback to unidecode for unknown characters
+                        current_word += unidecode.unidecode(char)
+                else:
+                    if current_word:
+                        result.append(current_word)
+                        current_word = ''
+                    result.append(char)
+            
+            if current_word:
+                result.append(current_word)
+            
+            # Join and clean up the result
+            romanized = ''.join(result)
+            romanized = re.sub(r'\s+', ' ', romanized).strip()
+            return romanized
+            
+        except Exception as e:
+            print(f"Korean romanization failed: {str(e)}")
+            return unidecode.unidecode(text)
     
     def sanitize_filename(self, text: str, max_length: int = 100) -> str:
         """Sanitize Korean filename for filesystem compatibility."""
@@ -49,25 +77,22 @@ class KoreanTextHandler:
         
         # Handle Korean text
         if self.is_korean(text):
-            try:
-                # Try UTF-8 encoding
-                text.encode('utf-8')
-            except UnicodeEncodeError:
-                text = self.romanize_korean(text)
+            # Try to romanize if needed
+            text = self.romanize_korean(text)
         
         # Replace spaces with hyphens and remove multiple hyphens
         text = re.sub(r'\s+', '-', text)
         text = re.sub(r'-+', '-', text)
         
-        # Trim to max length while preserving Korean character boundaries
+        # Truncate if too long
         if len(text) > max_length:
-            while len(text.encode('utf-8')) > max_length and text:
-                text = text[:-1]
-        
+            base, ext = os.path.splitext(text)
+            text = base[:max_length-len(ext)] + ext
+            
         return text.strip('-')
     
     def detect_korean_content(self, content: str) -> bool:
-        """Detect if content is primarily Korean using MeCab analysis."""
+        """Detect if content is primarily Korean."""
         if not content:
             return False
             
@@ -75,46 +100,21 @@ class KoreanTextHandler:
         korean_chars = len(re.findall('[가-힣ㄱ-ㅎㅏ-ㅣ]', content))
         total_chars = len(re.findall(r'\w', content))
         
-        # Use MeCab to analyze text structure
-        if korean_chars > 0:
-            node = self.mecab.parseToNode(content)
-            korean_morphemes = 0
-            total_morphemes = 0
-            
-            while node:
-                if node.surface:  # Skip empty nodes
-                    total_morphemes += 1
-                    if any(self.is_korean(char) for char in node.surface):
-                        korean_morphemes += 1
-                node = node.next
-            
-            # Consider content Korean if more than 30% morphemes are Korean
-            morpheme_ratio = korean_morphemes / total_morphemes if total_morphemes else 0
-            return morpheme_ratio > 0.3
-            
-        return False
+        # Consider content Korean if more than 30% characters are Korean
+        char_ratio = korean_chars / total_chars if total_chars else 0
+        return char_ratio > 0.3
     
     def normalize_korean_text(self, text: str) -> str:
-        """Normalize Korean text for consistency using MeCab."""
+        """Normalize Korean text for consistency."""
         if not text:
             return text
             
-        # Parse with MeCab to get standard form
-        node = self.mecab.parseToNode(text)
-        normalized_parts = []
+        # Basic text normalization rules
+        text = text.strip()
+        text = re.sub(r'\s+', ' ', text)  # Normalize whitespace
+        text = text.lower()  # Convert to lowercase
         
-        while node:
-            if node.surface:  # Skip empty nodes
-                # Get dictionary form if available
-                features = node.feature.split(',')
-                if len(features) > 7 and features[7] != '*':
-                    normalized_parts.append(features[7])
-                else:
-                    normalized_parts.append(node.surface)
-            node = node.next
-        
-        # Join and normalize whitespace
-        text = ' '.join(normalized_parts)
-        text = re.sub(r'\s+', ' ', text).strip()
+        # Remove common noise patterns
+        text = re.sub(r'[^\w\s가-힣ㄱ-ㅎㅏ-ㅣ-]', '', text)  # Keep only word chars, spaces, and Korean
         
         return text

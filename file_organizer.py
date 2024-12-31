@@ -5,8 +5,10 @@ from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
 import threading
 import json
+import re
 from config_manager import ConfigManager
 from error_handler import ErrorHandler, FileCategorizationError, FileOperationError, RetryableError
+from file_renamer import FileRenamer
 
 class FileOrganizer:
     def __init__(self, config_manager: ConfigManager = None):
@@ -23,6 +25,7 @@ class FileOrganizer:
         self._undo_stack = []
         self._redo_stack = []
         self.source_dir = None  # Initialize source directory as None
+        self.file_renamer = FileRenamer()  # Initialize file renamer
 
     def get_stats(self) -> Dict[str, int]:
         """Get current operation statistics"""
@@ -66,8 +69,8 @@ class FileOrganizer:
                 "target": target_dir
             }
             
-            # Move file
-            new_path = self._move_file(file_path, target_dir)
+            # Move file with smart rename
+            new_path = self._move_file(file_path, target_dir, analysis)
             
             # Record operation for undo
             self._undo_stack.append({
@@ -144,8 +147,8 @@ class FileOrganizer:
 
     def determine_para_category(self, file_path: str, analysis: Dict[str, Any]) -> Tuple[str, str]:
         """Determine PARA category based on file analysis"""
-        print(f"\nDetermining PARA category for {file_path}")
-        print(f"Analysis data: {analysis}")
+        main_category = ''
+        sub_category = ''
         
         # Default to 'other/uncategorized'
         default_category = ('other', 'other')
@@ -161,11 +164,43 @@ class FileOrganizer:
                     lines = analysis_text.split('\n')
                     for line in lines:
                         if line.startswith('Category:'):
-                            main_category = line.split(':')[1].strip().lower()
+                            # Remove markdown formatting and clean the text
+                            category_text = line.split(':', 1)[1].strip()
+                            # Remove markdown formatting (**, etc.)
+                            category_text = re.sub(r'\*\*|\*', '', category_text)
+                            # Extract main category (handle Korean in parentheses)
+                            main_match = re.match(r'([^(]+)(?:\s*\([^)]+\))?', category_text)
+                            if main_match:
+                                main_category = main_match.group(1).strip().lower()
                         elif line.startswith('Subcategory:'):
-                            sub_category = line.split(':')[1].strip().lower()
-                            
+                            # Remove markdown formatting and clean the text
+                            subcategory_text = line.split(':', 1)[1].strip()
+                            # Remove markdown formatting (**, etc.)
+                            subcategory_text = re.sub(r'\*\*|\*', '', subcategory_text)
+                            # Extract subcategory (handle Korean in parentheses)
+                            sub_match = re.match(r'([^(]+)(?:\s*\([^)]+\))?', subcategory_text)
+                            if sub_match:
+                                sub_category = sub_match.group(1).strip().lower()
+                    
                     # Map the categories to our structure
+                    main_category_map = {
+                        'projects': 'projects',
+                        'project': 'projects',
+                        'areas': 'areas',
+                        'area': 'areas',
+                        'resources': 'resources',
+                        'resource': 'resources',
+                        'archives': 'archives',
+                        'archive': 'archives',
+                        '프로젝트': 'projects',
+                        '영역': 'areas',
+                        '자료': 'resources',
+                        '보관': 'archives'
+                    }
+                    
+                    # Clean and map the main category
+                    main_category = main_category_map.get(main_category.lower().strip(), '')
+                    
                     if main_category in ['projects', 'areas', 'resources', 'archives']:
                         if sub_category:
                             print(f"Found category from analysis: {main_category}/{sub_category}")
@@ -185,19 +220,73 @@ class FileOrganizer:
         category_path = self.get_para_category_name(main_category, sub_category)
         return os.path.join(self.source_dir, category_path)
 
-    def _move_file(self, file_path: str, target_dir: str) -> str:
-        """Move a file to the target directory"""
-        os.makedirs(target_dir, exist_ok=True)
-        target_path = os.path.join(target_dir, os.path.basename(file_path))
-        # Handle file name conflicts
-        if os.path.exists(target_path):
+    def _move_file(self, file_path: str, target_dir: str, analysis: Dict[str, Any] = None) -> str:
+        """Move a file to the target directory with optional smart renaming"""
+        if not os.path.exists(file_path):
+            raise FileOperationError(f"Source file not found: {file_path}")
+            
+        if not os.path.exists(target_dir):
+            os.makedirs(target_dir, exist_ok=True)
+        
+        current_path = file_path
+        renamed_path = None
+        
+        # Step 1: Rename the file if we have analysis data
+        if analysis and analysis.get('content_analysis'):
+            content_analysis = analysis['content_analysis']
+            if content_analysis.get('success', False):
+                suggested_name = content_analysis.get('suggested_name', '')
+                
+                if suggested_name:
+                    print(f"[Smart Rename] {os.path.basename(file_path)}\n  → New name: {suggested_name}{os.path.splitext(file_path)[1]}\n  → Location: {os.path.relpath(target_dir, os.path.dirname(file_path))}")
+                    
+                    suggestion = {
+                        'success': True,
+                        'suggested_name': suggested_name
+                    }
+                    
+                    # Try to rename the file in its current location
+                    rename_result = self.file_renamer.rename_with_suggestion(current_path, suggestion)
+                    if rename_result.get('success'):
+                        renamed_path = rename_result.get('new_path')
+                        if renamed_path and os.path.exists(renamed_path):
+                            current_path = renamed_path
+                            print(f"Successfully renamed file to: {os.path.basename(renamed_path)}")
+                        else:
+                            self.error_handler.log_warning(f"Renamed file not found: {renamed_path}, using original name")
+                            renamed_path = None
+                    else:
+                        self.error_handler.log_warning(f"Rename failed: {rename_result.get('error', 'Unknown error')}")
+                else:
+                    print("No rename suggestion found in analysis")
+        
+        # Step 2: Move the file (either renamed or original) to target directory
+        target_filename = os.path.basename(current_path)
+        target_path = os.path.join(target_dir, target_filename)
+        
+        # Handle file name conflicts at target location
+        if os.path.exists(target_path) and target_path != current_path:
             base, ext = os.path.splitext(target_path)
             counter = 1
             while os.path.exists(f"{base}_{counter}{ext}"):
                 counter += 1
             target_path = f"{base}_{counter}{ext}"
-        shutil.move(file_path, target_path)
-        return target_path
+        
+        try:
+            # Only move if the target is different from current location
+            if os.path.normpath(os.path.dirname(current_path)) != os.path.normpath(target_dir):
+                shutil.move(current_path, target_path)
+                return target_path
+            else:
+                return current_path
+        except Exception as e:
+            # If move fails and we renamed the file, try to restore original name
+            if renamed_path and file_path != current_path:
+                try:
+                    shutil.move(current_path, file_path)
+                except:
+                    pass  # If restoration fails, continue with the error
+            raise FileOperationError(f"Failed to move file {current_path} to {target_path}: {str(e)}")
 
     def remove_empty_folders(self, directory: str):
         """

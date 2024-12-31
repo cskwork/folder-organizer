@@ -4,7 +4,7 @@ import json
 import requests
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import threading
 import win32com.client
 from PIL import Image
@@ -15,6 +15,7 @@ import docx
 import mimetypes
 import yaml
 from xml.etree import ElementTree
+import re
 
 class FileAnalyzer:
     def __init__(self, model: str = "mistral", ollama_url: str = "http://localhost:11434/api/generate", config_manager=None):
@@ -85,18 +86,22 @@ class FileAnalyzer:
                 print("Content analysis possible, proceeding...")
                 content_analysis = self._analyze_content(file_path, metadata)
                 print(f"Content analysis result: {content_analysis}")
-                analysis['content_analysis'] = content_analysis
                 
-                # Generate smart rename suggestion if enabled
-                if self.config_manager:
-                    org_rules = self.config_manager.get_organization_rules()
-                    print(f"Organization rules: {org_rules}")
-                    if org_rules.get('smart_rename_enabled', True):
-                        print("Smart rename enabled, generating suggestion...")
-                        rename_suggestion = self._suggest_rename(file_path, content_analysis)
-                        print(f"Rename suggestion: {rename_suggestion}")
-                        if rename_suggestion['success']:
-                            analysis['suggested_name'] = rename_suggestion['suggested_name']
+                # If content analysis was successful, try to get a rename suggestion
+                if content_analysis.get('success'):
+                    if 'suggested_name' in content_analysis:
+                        print(f"Using existing suggested name: {content_analysis['suggested_name']}")
+                    else:
+                        # Generate smart rename suggestion if enabled
+                        if self.config_manager and self.config_manager.get_organization_rules().get('smart_rename_enabled', True):
+                            print("Smart rename enabled, generating suggestion...")
+                            rename_suggestion = self._suggest_rename(file_path, content_analysis)
+                            print(f"Rename suggestion: {rename_suggestion}")
+                            if rename_suggestion['success']:
+                                content_analysis['suggested_name'] = rename_suggestion['suggested_name']
+                                print(f"Added suggested name to content analysis: {rename_suggestion['suggested_name']}")
+                
+                analysis['content_analysis'] = content_analysis
             else:
                 print(f"Content analysis skipped. use_content={use_content}, can_analyze={self._can_analyze_content(file_path)}")
             
@@ -178,6 +183,13 @@ class FileAnalyzer:
             # Extract key information from content analysis
             analysis_text = content_analysis.get('analysis', '')
             
+            # If content_analysis already has a suggested name, use it
+            if 'suggested_name' in content_analysis:
+                return {
+                    'success': True,
+                    'suggested_name': content_analysis['suggested_name']
+                }
+            
             # Parse summary and keywords
             summary = ""
             keywords = []
@@ -185,30 +197,27 @@ class FileAnalyzer:
                 if line.startswith('Summary:'):
                     summary = line.split(':', 1)[1].strip()
                 elif line.startswith('Keywords:'):
-                    keywords = line.split(':', 1)[1].strip().split(',')
-            
+                    keywords = [k.strip() for k in line.split(':', 1)[1].strip().split(',')]
+                    
             # Get language setting from config
             language = "korean"
             if self.config_manager:
                 language = self.config_manager.get_setting("language", "korean")
             
-            # Use Ollama to suggest a descriptive filename
+            # Create a more specific prompt for better name suggestions
             prompt = f"""Based on this content summary and keywords, suggest a clear and descriptive filename 
             (without extension) that reflects the content. The name should be in {language}.
-
+            
             Content Summary: {summary}
             Keywords: {', '.join(keywords)}
+            Original Filename: {os.path.splitext(os.path.basename(file_path))[0]}
 
             Requirements for the filename:
             1. Concise but descriptive (max 50 characters)
-            2. If Korean:
-               - Use Korean characters naturally
-               - Can include English if needed for technical terms
-               - Use hyphens (-) to separate words if needed
-            3. If English:
-               - Use only alphanumeric characters, hyphens, and underscores
-               - All lowercase
-               - No spaces (use hyphens instead)
+            2. Must reflect the main purpose or content
+            3. If technical terms exist in keywords, include the most important one
+            4. Use underscores to separate words
+            5. No spaces or special characters except underscores
             
             Return ONLY the suggested filename, nothing else."""
             
@@ -224,17 +233,15 @@ class FileAnalyzer:
             if response.status_code == 200:
                 suggested_name = response.json()['response'].strip()
                 
-                # Clean the suggested name based on language
-                if language == "korean":
-                    # Allow Korean characters, numbers, letters, and basic punctuation
-                    suggested_name = ''.join(c for c in suggested_name 
-                                          if c.isalnum() or c in '-_' or ord(c) > 128)
-                else:
-                    # English mode - only alphanumeric and basic punctuation
-                    suggested_name = ''.join(c if c.isalnum() or c in '-_' else '-' 
-                                          for c in suggested_name.lower())
+                # Clean the suggested name
+                suggested_name = ''.join(c if c.isalnum() or c == '_' else '_' 
+                                      for c in suggested_name.lower())
+                suggested_name = re.sub(r'_+', '_', suggested_name)  # Replace multiple underscores with single
+                suggested_name = suggested_name.strip('_')  # Remove leading/trailing underscores
                 
-                suggested_name = suggested_name[:50]  # Truncate if too long
+                # Truncate if too long
+                if len(suggested_name) > 50:
+                    suggested_name = suggested_name[:47] + "..."
                 
                 return {
                     'success': True,
@@ -395,101 +402,105 @@ class FileAnalyzer:
         Analyze file content using Ollama for PARA categorization with metadata context
         """
         try:
-            # Try different encodings for Korean text
-            content = None
-            encodings = ['utf-8', 'cp949', 'euc-kr']
+            # Get file content based on type
+            content = self._get_file_content(file_path)
+            if not content:
+                return {'success': False, 'error': 'Could not read file content'}
             
-            for encoding in encodings:
-                try:
-                    with open(file_path, 'r', encoding=encoding) as f:
-                        content = f.read()
-                    break
-                except UnicodeDecodeError:
-                    continue
-                    
-            if content is None:
-                return {
-                    'success': False,
-                    'error': 'Failed to decode file content'
-                }
-            
-            # Create metadata summary
-            metadata_summary = []
-            if metadata.get('author'):
-                metadata_summary.append(f"Author: {metadata['author']}")
-            if metadata.get('title'):
-                metadata_summary.append(f"Title: {metadata['title']}")
-            if metadata.get('subject'):
-                metadata_summary.append(f"Subject: {metadata['subject']}")
-            if metadata.get('keywords'):
-                metadata_summary.append(f"Keywords: {metadata['keywords']}")
-            if metadata.get('created'):
-                metadata_summary.append(f"Created: {metadata['created']}")
-            
-            # First, analyze content and suggest category
-            analysis_prompt = f"""Analyze this content and provide a PARA category classification. The content appears to be in Korean.
+            # Create analysis prompt
+            prompt = f"""Analyze this file and provide:
+1. PARA category (Projects, Areas, Resources, Archives) with Korean translation
+2. Subcategory that best fits the content
+3. Confidence level (high, medium, low)
+4. Brief summary of the content
+5. Keywords (comma-separated)
+6. Suggest a descriptive filename (without extension) that reflects the content
 
-            File Metadata:
-            {chr(10).join(metadata_summary)}
+File: {metadata.get('name', '')}
+Type: {metadata.get('mime_type', '')}
+Content: {content[:2000]}  # Limit content to first 2000 chars
 
-            Content Preview:
-            {content[:2000]}...
-
-            Based on the content and metadata, classify this file into one of these categories:
-
-            1. Projects (프로젝트)
-               - active: Current active projects (진행중인 프로젝트)
-               - next: Future planned projects (예정된 프로젝트)
-               - done: Completed projects (완료된 프로젝트)
-
-            2. Areas (영역)
-               - work: Work-related (업무)
-               - personal: Personal life (개인)
-               - health: Health and wellness (건강)
-               - finance: Financial matters (재정)
-
-            3. Resources (자료)
-               - knowledge: Knowledge base (지식)
-               - references: Reference materials (참고자료)
-               - media: Media files (미디어)
-
-            4. Archives (보관)
-               - projects: Old projects (프로젝트)
-               - resources: Old resources (자료)
-               - quarterly: Quarterly archives (분기별)
-
-            Respond in this exact format:
-            Category: [main category]
-            Subcategory: [subcategory]
-            Confidence: [high/medium/low]
-            Summary: [1-2 sentence summary]
-            Keywords: [3-5 key topics]"""
+Format the response exactly like this:
+Category: **category_name (한글)**
+Subcategory: **subcategory_name (한글)**
+Confidence: **level**
+Summary: [brief summary]
+Keywords: [comma-separated keywords]
+Suggested name: [descriptive_filename_without_extension]
+"""
             
             response = requests.post(
                 self.ollama_url,
                 json={
                     "model": self.model,
-                    "prompt": analysis_prompt,
+                    "prompt": prompt,
                     "stream": False
                 }
             )
             
             if response.status_code == 200:
-                return {
+                analysis_text = response.json()['response']
+                
+                # Extract suggested name from analysis
+                suggested_name = None
+                for line in analysis_text.split('\n'):
+                    if line.startswith('Suggested name:'):
+                        # Remove markdown formatting and clean the suggested name
+                        suggested_name = line.split(':', 1)[1].strip()
+                        suggested_name = re.sub(r'\*\*|\*', '', suggested_name)  # Remove markdown formatting
+                        suggested_name = suggested_name.strip()
+                        break
+                
+                result = {
                     'success': True,
-                    'analysis': response.json()['response']
-                }
-            else:
-                return {
-                    'success': False,
-                    'error': f"HTTP {response.status_code}"
+                    'analysis': analysis_text
                 }
                 
+                if suggested_name:
+                    result['suggested_name'] = suggested_name
+                
+                return result
+            else:
+                return {'success': False, 'error': 'Failed to get analysis from LLM'}
+                
         except Exception as e:
-            return {
-                'success': False,
-                'error': str(e)
-            }
+            return {'success': False, 'error': str(e)}
+
+    def _get_file_content(self, file_path: str) -> Optional[str]:
+        """
+        Get file content with proper encoding handling.
+        Tries multiple encodings for Korean text support.
+        """
+        # Try different encodings for text files
+        encodings = ['utf-8', 'cp949', 'euc-kr']
+        
+        # First check if it's a text file
+        if not self._is_text_file(Path(file_path)):
+            print(f"Not a text file: {file_path}")
+            return "[Binary file content not shown]"
+            
+        # Try reading with different encodings
+        for encoding in encodings:
+            try:
+                with open(file_path, 'r', encoding=encoding) as f:
+                    content = f.read()
+                print(f"Successfully read file with {encoding} encoding")
+                return content
+            except UnicodeDecodeError:
+                continue
+            except Exception as e:
+                print(f"Error reading file with {encoding}: {str(e)}")
+                continue
+        
+        # If all encodings fail, try binary read and decode
+        try:
+            with open(file_path, 'rb') as f:
+                content = f.read()
+                # Try to decode as utf-8 with error handling
+                return content.decode('utf-8', errors='replace')
+        except Exception as e:
+            print(f"Failed to read file content: {str(e)}")
+            return None
 
     def _is_text_file(self, path: Path) -> bool:
         """Check if the file is a text file."""
