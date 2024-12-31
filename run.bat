@@ -1,28 +1,18 @@
 @echo off
 chcp 65001 > nul
-setlocal EnableDelayedExpansion
+setlocal enabledelayedexpansion
 
 echo ===================================
 echo Intelligent File Organizer Setup
 echo ===================================
 
-:: Check Python installation
-@REM python --version > nul 2>&1
-@REM if errorlevel 1 (
-@REM     echo Error: Python is not installed or not in PATH
-@REM     echo Please install Python 3.10 or higher from https://www.python.org/
-@REM     pause
-@REM     exit /b 1
-@REM )
-
-@REM :: Check Python version
-@REM for /f "tokens=2 delims=." %%I in ('python -c "import sys; print(sys.version.split('.')[0])"') do set PYTHON_VERSION=%%I
-@REM if %PYTHON_VERSION% LSS 10 (
-@REM     echo Error: Python version 3.10 or higher is required
-@REM     echo Current version: 3.%PYTHON_VERSION%
-@REM     pause
-@REM     exit /b 1
-@REM )
+:: Check if Python is installed
+where python >nul 2>nul
+if %ERRORLEVEL% neq 0 (
+    echo Python is not installed. Please install Python 3.8 or later.
+    pause
+    exit /b 1
+)
 
 :: Check and create virtual environment if not exists
 if not exist venv (
@@ -37,12 +27,15 @@ if not exist venv (
 
 :: Activate virtual environment
 echo Activating virtual environment...
-call venv\Scripts\activate
+call venv\Scripts\activate.bat
 if errorlevel 1 (
     echo Error: Failed to activate virtual environment
     pause
     exit /b 1
 )
+
+:: Install/upgrade pip
+python -m pip install --upgrade pip
 
 :: Install required packages
 echo Installing required packages...
