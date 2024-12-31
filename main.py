@@ -325,9 +325,11 @@ class FileOrganizerGUI(ctk.CTk):
                 
                 # Show original name and smart rename suggestion if enabled
                 original_name = os.path.basename(file_path)
-                if smart_rename_enabled and 'suggested_name' in analysis:
-                    print(f"Found rename suggestion: {analysis['suggested_name']}")
-                    new_name = f"{analysis['suggested_name']}{os.path.splitext(original_name)[1]}"
+                content_analysis = analysis.get('content_analysis', {})
+                if smart_rename_enabled and content_analysis.get('success') and 'suggested_name' in content_analysis:
+                    suggested_name = content_analysis['suggested_name']
+                    print(f"Found rename suggestion: {suggested_name}")
+                    new_name = f"{suggested_name}{os.path.splitext(original_name)[1]}"
                     preview_text += f"[Smart Rename] {original_name}\n"
                     preview_text += f"  → New name: {new_name}\n"
                     preview_text += f"  → Location: {category_path}\n\n"
