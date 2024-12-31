@@ -7,8 +7,8 @@
     "remove_empty_folders": true,
     "language": "korean",
     "parent_folders": {
-        "english": ["1_projects", "2_areas", "3_resources", "4_archives"],
-        "korean": ["1_프로젝트", "2_영역", "3_자료", "4_보관"]
+        "english": ["1_projects", "2_areas", "3_resources", "4_archives", "5_other"],
+        "korean": ["1_프로젝트", "2_영역", "3_자료", "4_보관", "5_기타"]
     },
     "category_names": {
         "english": {
@@ -32,6 +32,9 @@
                 "projects": "4_archives/projects",
                 "resources": "4_archives/resources",
                 "quarterly": "4_archives/quarterly"
+            },
+            "other": {
+                "other": "5_other/uncategorized"
             }
         },
         "korean": {
@@ -55,6 +58,9 @@
                 "projects": "4_보관/프로젝트",
                 "resources": "4_보관/자료",
                 "quarterly": "4_보관/분기별"
+            },
+            "other": {
+                "other": "5_기타/미분류"
             }
         }
     },
