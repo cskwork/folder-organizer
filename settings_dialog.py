@@ -32,13 +32,6 @@ class SettingsDialog(ctk.CTkToplevel):
         )
         self.language_menu.pack(side="left", padx=5)
         
-        # Model settings
-        self.model_frame = self._create_section_frame("Ollama Model Settings")
-        
-        self.model_var = ctk.StringVar(value=config_manager.get_setting("default_model"))
-        self.model_entry = ctk.CTkEntry(self.model_frame, textvariable=self.model_var)
-        self.model_entry.pack(fill="x", padx=5, pady=5)
-        
         # File size limit
         self.size_frame = self._create_section_frame("File Size Limit")
         
@@ -116,6 +109,78 @@ class SettingsDialog(ctk.CTkToplevel):
                                                    variable=self.empty_folder_var)
         self.empty_folder_checkbox.pack(side="left", padx=5)
         
+        # LLM Provider settings
+        self.llm_frame = self._create_section_frame("LLM Provider Settings")
+        
+        # Provider selection
+        self.provider_label = ctk.CTkLabel(self.llm_frame, text="Default Provider:")
+        self.provider_label.pack(anchor="w", padx=5, pady=2)
+        
+        llm_config = config_manager.get_setting("llm_config", {})
+        self.provider_var = ctk.StringVar(value=llm_config.get("default_provider", "ollama"))
+        self.provider_menu = ctk.CTkOptionMenu(
+            self.llm_frame,
+            values=["ollama", "openrouter"],
+            variable=self.provider_var,
+            command=self.on_provider_change
+        )
+        self.provider_menu.pack(anchor="w", padx=5, pady=2)
+        
+        # Model selection (common for both providers)
+        self.model_label = ctk.CTkLabel(self.llm_frame, text="Model:")
+        self.model_label.pack(anchor="w", padx=5, pady=2)
+        
+        # Default models for each provider
+        self.provider_models = {
+            "openrouter": ["google/gemini-pro", "anthropic/claude-3-opus", "anthropic/claude-3-sonnet", "mistralai/mistral-large"],
+            "ollama": ["llama2", "codellama", "mistral", "mixtral"]
+        }
+        
+        self.model_var = ctk.StringVar()
+        self.model_menu = ctk.CTkOptionMenu(
+            self.llm_frame,
+            values=self.provider_models["ollama"],  # Default to ollama models
+            variable=self.model_var
+        )
+        self.model_menu.pack(anchor="w", padx=5, pady=2)
+        
+        # Provider specific settings
+        self.provider_settings_frame = ctk.CTkFrame(self.llm_frame)
+        self.provider_settings_frame.pack(fill="x", padx=5, pady=5)
+        
+        # OpenRouter settings
+        self.openrouter_frame = ctk.CTkFrame(self.provider_settings_frame)
+        openrouter_config = llm_config.get("providers", {}).get("openrouter", {})
+        
+        self.api_key_label = ctk.CTkLabel(self.openrouter_frame, text="API Key:")
+        self.api_key_label.pack(anchor="w", padx=5, pady=2)
+        
+        self.api_key_var = ctk.StringVar(value=openrouter_config.get("api_key", ""))
+        self.api_key_entry = ctk.CTkEntry(self.openrouter_frame, textvariable=self.api_key_var, width=300)
+        self.api_key_entry.pack(anchor="w", padx=5, pady=2)
+        
+        # Ollama settings
+        self.ollama_frame = ctk.CTkFrame(self.provider_settings_frame)
+        ollama_config = llm_config.get("providers", {}).get("ollama", {})
+        
+        self.ollama_url_label = ctk.CTkLabel(self.ollama_frame, text="URL:")
+        self.ollama_url_label.pack(anchor="w", padx=5, pady=2)
+        
+        self.ollama_url_var = ctk.StringVar(value=ollama_config.get("url", "http://localhost:11434/api/generate"))
+        self.ollama_url_entry = ctk.CTkEntry(self.ollama_frame, textvariable=self.ollama_url_var, width=300)
+        self.ollama_url_entry.pack(anchor="w", padx=5, pady=2)
+        
+        # Test connection button
+        self.test_button = ctk.CTkButton(self.llm_frame, text="Test Connection", command=self.test_llm_connection)
+        self.test_button.pack(anchor="w", padx=5, pady=10)
+        
+        # Status label
+        self.status_label = ctk.CTkLabel(self.llm_frame, text="")
+        self.status_label.pack(anchor="w", padx=5, pady=5)
+        
+        # Show initial provider frame
+        self.on_provider_change(self.provider_var.get())
+        
         # Backup settings
         self.backup_settings_frame = self._create_section_frame("Backup Settings")
         
@@ -145,6 +210,59 @@ class SettingsDialog(ctk.CTkToplevel):
         
         return frame
 
+    def on_provider_change(self, provider: str):
+        """Handle provider change in the UI."""
+        # Hide all provider frames
+        self.openrouter_frame.pack_forget()
+        self.ollama_frame.pack_forget()
+        
+        # Update model menu with provider-specific models
+        self.model_menu.configure(values=self.provider_models[provider])
+        self.model_var.set(self.provider_models[provider][0])  # Set first model as default
+        
+        # Show selected provider frame
+        if provider == "openrouter":
+            self.openrouter_frame.pack(fill="x", padx=5, pady=5)
+        elif provider == "ollama":
+            self.ollama_frame.pack(fill="x", padx=5, pady=5)
+            
+    def test_llm_connection(self):
+        """Test the LLM provider connection."""
+        provider = self.provider_var.get()
+        
+        # Update config with current values
+        llm_config = {
+            "default_provider": provider,
+            "providers": {
+                "openrouter": {
+                    "url": "https://openrouter.ai/api/v1/chat/completions",
+                    "api_key": self.api_key_var.get(),
+                    "default_model": self.model_var.get()
+                },
+                "ollama": {
+                    "url": self.ollama_url_var.get(),
+                    "default_model": self.model_var.get()
+                }
+            }
+        }
+        
+        # Create temporary ContentAnalyzer with current settings
+        from content_analyzer import ContentAnalyzer
+        analyzer = ContentAnalyzer(None)
+        analyzer.provider = provider
+        analyzer.providers_config = llm_config["providers"]
+        
+        # Test the connection
+        self.status_label.configure(text="Testing connection...")
+        self.update()
+        
+        result = analyzer.test_llm_provider(provider)
+        
+        if result["success"]:
+            self.status_label.configure(text=f"✓ {result['message']}", text_color="green")
+        else:
+            self.status_label.configure(text=f"✗ {result['message']}", text_color="red")
+
     def save_settings(self):
         """Save all settings to config manager"""
         # Update organization rules
@@ -159,9 +277,25 @@ class SettingsDialog(ctk.CTkToplevel):
 
         # Update main settings
         self.config_manager.set_setting("language", self.language_var.get())
-        self.config_manager.set_setting("default_model", self.model_var.get())
         self.config_manager.set_setting("max_file_size_mb", float(self.size_var.get()))
         self.config_manager.set_setting("organization_rules", rules)
+        
+        # Update LLM config
+        llm_config = {
+            "default_provider": self.provider_var.get(),
+            "providers": {
+                "openrouter": {
+                    "url": "https://openrouter.ai/api/v1/chat/completions",
+                    "api_key": self.api_key_var.get(),
+                    "default_model": self.model_var.get()
+                },
+                "ollama": {
+                    "url": self.ollama_url_var.get(),
+                    "default_model": self.model_var.get()
+                }
+            }
+        }
+        self.config_manager.set_setting("llm_config", llm_config)
         
         self.destroy()
 

@@ -1,14 +1,47 @@
 {
-    "default_model": "exaone3.5:2.4b",
-    "ollama_url": "http://localhost:11434/api/generate",
-    "max_file_size_mb": 1,
+    "llm_config": {
+        "default_provider": "openrouter",
+        "providers": {
+            "openrouter": {
+                "url": "https://openrouter.ai/api/v1/chat/completions",
+                "api_key": "api-key",
+                "default_model": "google/gemini-flash-1.5-8b"
+            },
+            "ollama": {
+                "url": "http://localhost:11434",
+                "default_model": "google/gemini-flash-1.5-8b"
+            }
+        }
+    },
+    "content_analysis": {
+        "text_sample_length": 2000,
+        "language_sample_length": 1000,
+        "confidence_scores": {
+            "korean": 0.8,
+            "other": 0.7,
+            "java_class": 0.9
+        }
+    },
+    "max_file_size_mb": 1.0,
     "backup_enabled": false,
     "date_organization_enabled": false,
     "remove_empty_folders": true,
     "language": "korean",
     "parent_folders": {
-        "english": ["1_projects", "2_areas", "3_resources", "4_archives", "5_other"],
-        "korean": ["1_프로젝트", "2_영역", "3_자료", "4_보관", "5_기타"]
+        "english": [
+            "1_projects",
+            "2_areas",
+            "3_resources",
+            "4_archives",
+            "5_other"
+        ],
+        "korean": [
+            "1_\ud504\ub85c\uc81d\ud2b8",
+            "2_\uc601\uc5ed",
+            "3_\uc790\ub8cc",
+            "4_\ubcf4\uad00",
+            "5_\uae30\ud0c0"
+        ]
     },
     "category_names": {
         "english": {
@@ -39,46 +72,105 @@
         },
         "korean": {
             "projects": {
-                "active": "1_프로젝트/진행중",
-                "next": "1_프로젝트/예정",
-                "completed": "4_보관/완료된_프로젝트"
+                "active": "1_\ud504\ub85c\uc81d\ud2b8/\uc9c4\ud589\uc911",
+                "next": "1_\ud504\ub85c\uc81d\ud2b8/\uc608\uc815",
+                "completed": "4_\ubcf4\uad00/\uc644\ub8cc\ub41c_\ud504\ub85c\uc81d\ud2b8"
             },
             "areas": {
-                "work": "2_영역/업무",
-                "personal": "2_영역/개인",
-                "health": "2_영역/건강",
-                "finance": "2_영역/재정"
+                "work": "2_\uc601\uc5ed/\uc5c5\ubb34",
+                "personal": "2_\uc601\uc5ed/\uac1c\uc778",
+                "health": "2_\uc601\uc5ed/\uac74\uac15",
+                "finance": "2_\uc601\uc5ed/\uc7ac\uc815"
             },
             "resources": {
-                "knowledge": "3_자료/지식",
-                "references": "3_자료/참고자료",
-                "media": "3_자료/미디어"
+                "knowledge": "3_\uc790\ub8cc/\uc9c0\uc2dd",
+                "references": "3_\uc790\ub8cc/\ucc38\uace0\uc790\ub8cc",
+                "media": "3_\uc790\ub8cc/\ubbf8\ub514\uc5b4"
             },
             "archives": {
-                "projects": "4_보관/프로젝트",
-                "resources": "4_보관/자료",
-                "quarterly": "4_보관/분기별"
+                "projects": "4_\ubcf4\uad00/\ud504\ub85c\uc81d\ud2b8",
+                "resources": "4_\ubcf4\uad00/\uc790\ub8cc",
+                "quarterly": "4_\ubcf4\uad00/\ubd84\uae30\ubcc4"
             },
             "other": {
-                "other": "5_기타/미분류"
+                "other": "5_\uae30\ud0c0/\ubbf8\ubd84\ub958"
             }
         }
     },
     "supported_extensions": {
-        "documents": [".txt", ".doc", ".docx", ".pdf", ".rtf", ".odt", ".md", ".csv", ".json", ".xml"],
-        "images": [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".webp", ".svg"],
-        "videos": [".mp4", ".avi", ".mov", ".wmv", ".flv", ".mkv", ".webm"],
-        "audio": [".mp3", ".wav", ".ogg", ".m4a", ".flac", ".aac"],
-        "archives": [".zip", ".rar", ".7z", ".tar", ".gz", ".bz2"],
-        "code": [".py", ".js", ".html", ".css", ".java", ".cpp", ".h", ".cs", ".php"],
-        "data": [".xlsx", ".xls", ".db", ".sqlite", ".sql"]
+        "documents": [
+            ".txt",
+            ".doc",
+            ".docx",
+            ".pdf",
+            ".rtf",
+            ".odt",
+            ".md",
+            ".csv",
+            ".json",
+            ".xml"
+        ],
+        "images": [
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".bmp",
+            ".tiff",
+            ".webp",
+            ".svg"
+        ],
+        "videos": [
+            ".mp4",
+            ".avi",
+            ".mov",
+            ".wmv",
+            ".flv",
+            ".mkv",
+            ".webm"
+        ],
+        "audio": [
+            ".mp3",
+            ".wav",
+            ".ogg",
+            ".m4a",
+            ".flac",
+            ".aac"
+        ],
+        "archives": [
+            ".zip",
+            ".rar",
+            ".7z",
+            ".tar",
+            ".gz",
+            ".bz2"
+        ],
+        "code": [
+            ".py",
+            ".js",
+            ".html",
+            ".css",
+            ".java",
+            ".cpp",
+            ".h",
+            ".cs",
+            ".php"
+        ],
+        "data": [
+            ".xlsx",
+            ".xls",
+            ".db",
+            ".sqlite",
+            ".sql"
+        ]
     },
     "organization_rules": {
+        "smart_rename_enabled": true,
         "use_content_analysis": true,
         "use_file_type": true,
         "use_date": true,
         "date_format": "%Y-%m",
-        "min_confidence_score": 0.7,
-        "smart_rename_enabled": true
-    }
+        "min_confidence_score": 0.7
+    },
+    "default_model": "google/gemini-flash-1.5-8b"
 }

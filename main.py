@@ -33,9 +33,7 @@ class FileOrganizerGUI(ctk.CTk):
         }
         
         # Initialize components
-        self.file_analyzer = FileAnalyzer(
-            model=self.config_manager.get_setting("default_model"),
-            config_manager=self.config_manager)
+        self.file_analyzer = FileAnalyzer(config_manager=self.config_manager)
         self.file_organizer = FileOrganizer(config_manager=self.config_manager)
         self.analysis_results = None
         
@@ -223,19 +221,17 @@ class FileOrganizerGUI(ctk.CTk):
 
     def on_settings_changed(self):
         """Handle settings changes"""
-        # Update file analyzer model
-        self.file_analyzer.model = self.config_manager.get_setting("default_model")
-        
-        # Update checkboxes with new values
+        # Update organization rules
         rules = self.config_manager.get_organization_rules()
         self.content_analysis_var.set(rules.get("use_content_analysis", True))
         self.file_type_var.set(rules.get("use_file_type", True))
         self.date_var.set(rules.get("use_date", True))
         self.remove_empty_var.set(self.config_manager.get_setting("remove_empty_folders", True))
 
-        # Update any UI elements that depend on settings
-        self.update_preview()  # If you have a preview function
-
+        # Update preview if source directory is set
+        if hasattr(self, 'source_entry') and self.source_entry.get():
+            self.preview_organization()
+        
     def analyze_files(self):
         source_dir = self.source_entry.get()
         if not source_dir:

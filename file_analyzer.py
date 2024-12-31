@@ -16,13 +16,13 @@ import mimetypes
 import yaml
 from xml.etree import ElementTree
 import re
+from content_analyzer import ContentAnalyzer
 
 class FileAnalyzer:
-    def __init__(self, model: str = "mistral", ollama_url: str = "http://localhost:11434/api/generate", config_manager=None):
-        self.model = model
-        self.ollama_url = ollama_url
+    def __init__(self, config_manager=None):
         self.stop_flag = threading.Event()
         self.config_manager = config_manager
+        self.content_analyzer = ContentAnalyzer(config_manager)
         self.supported_extensions = {
             'documents': ['.txt', '.doc', '.docx', '.pdf', '.rtf', '.odt'],
             'images': ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff'],
@@ -222,9 +222,9 @@ class FileAnalyzer:
             Return ONLY the suggested filename, nothing else."""
             
             response = requests.post(
-                self.ollama_url,
+                self.config_manager.get_llm_provider_config().get('url'),
                 json={
-                    "model": self.model,
+                    "model": self.config_manager.get_llm_provider_config().get('model'),
                     "prompt": prompt,
                     "stream": False
                 }
@@ -384,14 +384,15 @@ class FileAnalyzer:
             is_text = False
             mime_type = magic.from_file(file_path, mime=True)
             
-            # Check if it's a text file or source code
+            # Check if it's a text file, source code, or specific mime types
             if (mime_type.startswith('text/') or 
-                mime_type in ['application/x-java-source', 'application/javascript'] or
-                extension in ['.java', '.py', '.js', '.txt']):
+                mime_type in ['application/x-java-source', 'application/javascript', 'text/x-java-source'] or
+                extension in ['.java', '.py', '.js', '.txt', '.json', '.xml', '.yaml', '.yml']):
                 is_text = True
             
             # Increased size limit to 5MB for text files
-            return is_text and size < 5 * 1024 * 1024
+            max_size = 5 * 1024 * 1024  # 5MB
+            return is_text and size < max_size
             
         except Exception as e:
             print(f"Error checking content analyzability: {str(e)}")
@@ -399,7 +400,7 @@ class FileAnalyzer:
 
     def _analyze_content(self, file_path: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Analyze file content using Ollama for PARA categorization with metadata context
+        Analyze file content using configured LLM provider for PARA categorization
         """
         try:
             # Get file content based on type
@@ -429,41 +430,35 @@ Keywords: [comma-separated keywords]
 Suggested name: [descriptive_filename_without_extension]
 """
             
-            response = requests.post(
-                self.ollama_url,
-                json={
-                    "model": self.model,
-                    "prompt": prompt,
-                    "stream": False
-                }
-            )
+            # Use ContentAnalyzer for LLM queries instead of direct API calls
+            analysis_text = self.content_analyzer._query_llm(prompt)
+            print("\nDebug - LLM Response:", analysis_text)  # Debug log
+            if not analysis_text:
+                print("Debug - No response from LLM")  # Debug log
+                return {'success': False, 'error': 'Failed to get response from LLM'}
             
-            if response.status_code == 200:
-                analysis_text = response.json()['response']
-                
-                # Extract suggested name from analysis
-                suggested_name = None
-                for line in analysis_text.split('\n'):
-                    if line.startswith('Suggested name:'):
-                        # Remove markdown formatting and clean the suggested name
-                        suggested_name = line.split(':', 1)[1].strip()
-                        suggested_name = re.sub(r'\*\*|\*', '', suggested_name)  # Remove markdown formatting
-                        suggested_name = suggested_name.strip()
-                        break
-                
-                result = {
-                    'success': True,
-                    'analysis': analysis_text
-                }
-                
-                if suggested_name:
-                    result['suggested_name'] = suggested_name
-                
-                return result
-            else:
-                return {'success': False, 'error': 'Failed to get analysis from LLM'}
-                
+            # Extract suggested name from analysis
+            suggested_name = None
+            print("\nDebug - Parsing response lines:")  # Debug log
+            for line in analysis_text.split('\n'):
+                print(f"Debug - Checking line: {line}")  # Debug log
+                if line.lower().startswith('suggested name:') or line.lower().startswith('suggested filename:'):
+                    # Remove markdown formatting and clean the suggested name
+                    suggested_name = line.split(':', 1)[1].strip()
+                    suggested_name = re.sub(r'\*\*|\*', '', suggested_name)  # Remove markdown formatting
+                    suggested_name = suggested_name.strip()
+                    print(f"Debug - Found suggested name: {suggested_name}")  # Debug log
+                    break
+            
+            print(f"\nDebug - Final suggested name: {suggested_name}")  # Debug log
+            return {
+                'success': True,
+                'analysis': analysis_text,
+                'suggested_name': suggested_name
+            }
+            
         except Exception as e:
+            print(f"Error in content analysis: {str(e)}")
             return {'success': False, 'error': str(e)}
 
     def _get_file_content(self, file_path: str) -> Optional[str]:
@@ -472,10 +467,33 @@ Suggested name: [descriptive_filename_without_extension]
         Tries multiple encodings for Korean text support.
         """
         # Try different encodings for text files
-        encodings = ['utf-8', 'cp949', 'euc-kr']
+        encodings = ['utf-8', 'cp949', 'euc-kr', 'iso-8859-1']
         
         # First check if it's a text file
-        if not self._is_text_file(Path(file_path)):
+        path = Path(file_path)
+        extension = path.suffix.lower()
+        
+        # Special handling for Java files
+        if extension == '.java':
+            try:
+                with open(file_path, 'rb') as f:
+                    content = f.read()
+                    # Try multiple encodings
+                    for encoding in encodings:
+                        try:
+                            decoded = content.decode(encoding)
+                            print(f"Successfully decoded Java file with {encoding}")
+                            return decoded
+                        except UnicodeDecodeError:
+                            continue
+                    # Fallback to replace invalid characters
+                    return content.decode('utf-8', errors='replace')
+            except Exception as e:
+                print(f"Error reading Java file: {str(e)}")
+                return None
+        
+        # For other text files
+        if not self._is_text_file(path):
             print(f"Not a text file: {file_path}")
             return "[Binary file content not shown]"
             
@@ -483,9 +501,10 @@ Suggested name: [descriptive_filename_without_extension]
         for encoding in encodings:
             try:
                 with open(file_path, 'r', encoding=encoding) as f:
-                    content = f.read()
-                print(f"Successfully read file with {encoding} encoding")
-                return content
+                    content = f.read(1024 * 1024)  # Read up to 1MB
+                    if len(content.strip()) > 0:
+                        print(f"Successfully read file with {encoding} encoding")
+                        return content
             except UnicodeDecodeError:
                 continue
             except Exception as e:
@@ -495,11 +514,11 @@ Suggested name: [descriptive_filename_without_extension]
         # If all encodings fail, try binary read and decode
         try:
             with open(file_path, 'rb') as f:
-                content = f.read()
+                content = f.read(1024 * 1024)  # Read up to 1MB
                 # Try to decode as utf-8 with error handling
                 return content.decode('utf-8', errors='replace')
         except Exception as e:
-            print(f"Failed to read file content: {str(e)}")
+            print(f"Error reading file in binary mode: {str(e)}")
             return None
 
     def _is_text_file(self, path: Path) -> bool:
