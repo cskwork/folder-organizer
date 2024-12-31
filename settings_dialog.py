@@ -12,6 +12,7 @@ class SettingsDialog(ctk.CTkToplevel):
         # Configure window
         self.title("Settings")
         self.geometry("600x800")
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
         
         # Create main frame
         self.main_frame = ctk.CTkScrollableFrame(self)
@@ -49,7 +50,13 @@ class SettingsDialog(ctk.CTkToplevel):
         self.rules_frame = self._create_section_frame("Organization Rules")
         
         rules = config_manager.get_organization_rules()
-        
+
+        # Smart Rename
+        self.smart_rename_var = ctk.BooleanVar(value=rules.get("smart_rename_enabled", True))
+        self.smart_rename_check = ctk.CTkCheckBox(self.rules_frame, text="Use Smart Rename",
+                                                variable=self.smart_rename_var)
+        self.smart_rename_check.pack(fill="x", padx=5, pady=5)
+
         self.content_var = ctk.BooleanVar(value=rules.get("use_content_analysis", True))
         self.content_check = ctk.CTkCheckBox(self.rules_frame, text="Use Content Analysis",
                                            variable=self.content_var)
@@ -118,17 +125,15 @@ class SettingsDialog(ctk.CTkToplevel):
                                           variable=self.backup_enabled_var)
         self.backup_enabled_check.pack(fill="x", padx=5, pady=5)
         
-        # Buttons
-        self.button_frame = ctk.CTkFrame(self)
-        self.button_frame.pack(fill="x", padx=20, pady=10)
-        
-        self.save_button = ctk.CTkButton(self.button_frame, text="Save",
-                                       command=self.save_settings)
-        self.save_button.pack(side="left", padx=5)
-        
-        self.cancel_button = ctk.CTkButton(self.button_frame, text="Cancel",
-                                         command=self.cancel)
-        self.cancel_button.pack(side="left", padx=5)
+        # Add Save and Cancel buttons
+        self.button_frame = ctk.CTkFrame(self.main_frame)
+        self.button_frame.pack(fill="x", padx=5, pady=10)
+
+        self.save_button = ctk.CTkButton(self.button_frame, text="Save", command=self.save_settings)
+        self.save_button.pack(side="right", padx=5)
+
+        self.cancel_button = ctk.CTkButton(self.button_frame, text="Cancel", command=self.on_closing)
+        self.cancel_button.pack(side="right", padx=5)
 
     def _create_section_frame(self, title: str) -> ctk.CTkFrame:
         """Create a section frame with title"""
@@ -140,37 +145,26 @@ class SettingsDialog(ctk.CTkToplevel):
         
         return frame
 
-    def save_settings(self) -> None:
-        """Save settings and close dialog"""
-        try:
-            # Update configuration
-            self.config_manager.set_setting("default_model", self.model_var.get())
-            self.config_manager.set_setting("max_file_size_mb",
-                                          float(self.size_var.get()))
-            self.config_manager.set_setting("backup_enabled",
-                                          self.backup_enabled_var.get())
-            self.config_manager.set_setting("language",
-                                          self.language_var.get())
-            
-            # Update organization rules
-            rules = {
-                "use_content_analysis": self.content_var.get(),
-                "use_file_type": self.type_var.get(),
-                "use_date": self.date_var.get(),
-                "date_format": self.date_format_var.get(),
-                "min_confidence_score": float(self.confidence_var.get()),
-                "remove_empty_folders": self.empty_folder_var.get()
-            }
-            self.config_manager.set_setting("organization_rules", rules)
-            
-            self.result = True
-            self.destroy()
-            
-        except ValueError as e:
-            ctk.CTkMessagebox(title="Error",
-                            message="Please enter valid numeric values for size and confidence score")
+    def save_settings(self):
+        """Save all settings to config manager"""
+        # Update organization rules
+        rules = {
+            "smart_rename_enabled": self.smart_rename_var.get(),
+            "use_content_analysis": self.content_var.get(),
+            "use_file_type": self.type_var.get(),
+            "use_date": self.date_var.get(),
+            "date_format": self.date_format_var.get(),
+            "min_confidence_score": float(self.confidence_var.get())
+        }
 
-    def cancel(self) -> None:
-        """Cancel and close dialog"""
-        self.result = False
+        # Update main settings
+        self.config_manager.set_setting("language", self.language_var.get())
+        self.config_manager.set_setting("default_model", self.model_var.get())
+        self.config_manager.set_setting("max_file_size_mb", float(self.size_var.get()))
+        self.config_manager.set_setting("organization_rules", rules)
+        
+        self.destroy()
+
+    def on_closing(self):
+        """Handle window closing"""
         self.destroy()

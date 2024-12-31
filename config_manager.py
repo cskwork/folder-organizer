@@ -4,9 +4,19 @@ from pathlib import Path
 from typing import Dict, Any
 
 class ConfigManager:
+    _instance = None
+    _observers = []
+
+    def __new__(cls, config_path: str = "config.json"):
+        if cls._instance is None:
+            cls._instance = super(ConfigManager, cls).__new__(cls)
+            cls._instance.config_path = config_path
+            cls._instance.config = cls._instance._load_config()
+        return cls._instance
+
     def __init__(self, config_path: str = "config.json"):
-        self.config_path = config_path
-        self.config = self._load_config()
+        # __new__ handles initialization
+        pass
 
     def _load_config(self) -> Dict[str, Any]:
         """Load configuration from file or create default"""
@@ -35,7 +45,8 @@ class ConfigManager:
                 "use_file_type": True,
                 "use_date": True,
                 "date_format": "%Y-%m",
-                "min_confidence_score": 0.7
+                "min_confidence_score": 0.7,
+                "smart_rename_enabled": True  # New option
             }
         }
         
@@ -49,6 +60,7 @@ class ConfigManager:
             
         with open(self.config_path, 'w') as f:
             json.dump(self.config, f, indent=4)
+        self.notify_observers()  # Notify observers when config is saved
 
     def get_setting(self, key: str, default: Any = None) -> Any:
         """Get a configuration setting by key"""
@@ -58,6 +70,7 @@ class ConfigManager:
         """Set a configuration setting"""
         self.config[key] = value
         self.save_config()
+        self.notify_observers()  # Notify observers when setting is changed
 
     def get_supported_extensions(self) -> Dict[str, list]:
         """Get supported file extensions by category"""
@@ -66,3 +79,18 @@ class ConfigManager:
     def get_organization_rules(self) -> Dict[str, Any]:
         """Get file organization rules"""
         return self.config.get("organization_rules", {})
+
+    def add_observer(self, observer):
+        """Add an observer that will be notified of config changes"""
+        if observer not in self._observers:
+            self._observers.append(observer)
+
+    def remove_observer(self, observer):
+        """Remove an observer"""
+        if observer in self._observers:
+            self._observers.remove(observer)
+
+    def notify_observers(self):
+        """Notify all observers of config changes"""
+        for observer in self._observers:
+            observer.on_settings_changed()

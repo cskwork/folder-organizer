@@ -2,7 +2,7 @@ import os
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 import threading
 import json
 from config_manager import ConfigManager
@@ -142,89 +142,41 @@ class FileOrganizer:
         # If category not found, return the "other" folder name
         return category_names[language]["other"]["other"]
 
-    def determine_para_category(self, file_path: str, analysis: Dict[str, Any]) -> tuple[str, str]:
-        """
-        Determine the PARA category for a file based on its analysis
-        Returns (main_category, sub_category)
-        """
-        # Check content analysis for PARA indicators
-        if ('content_analysis' in analysis and 
-            analysis['content_analysis'].get('success', False)):
-            content = analysis['content_analysis']['analysis'].lower()
+    def determine_para_category(self, file_path: str, analysis: Dict[str, Any]) -> Tuple[str, str]:
+        """Determine PARA category based on file analysis"""
+        print(f"\nDetermining PARA category for {file_path}")
+        print(f"Analysis data: {analysis}")
+        
+        # Default to 'other/uncategorized'
+        default_category = ('other', 'other')
+        
+        try:
+            # Check if we have content analysis results
+            if 'content_analysis' in analysis and analysis['content_analysis'].get('success'):
+                analysis_text = analysis['content_analysis']['analysis']
+                print(f"Content analysis found: {analysis_text}")
+                
+                # Parse PARA category from analysis
+                if 'Category:' in analysis_text:
+                    lines = analysis_text.split('\n')
+                    for line in lines:
+                        if line.startswith('Category:'):
+                            main_category = line.split(':')[1].strip().lower()
+                        elif line.startswith('Subcategory:'):
+                            sub_category = line.split(':')[1].strip().lower()
+                            
+                    # Map the categories to our structure
+                    if main_category in ['projects', 'areas', 'resources', 'archives']:
+                        if sub_category:
+                            print(f"Found category from analysis: {main_category}/{sub_category}")
+                            return main_category, sub_category
+                            
+            print(f"No valid category found in analysis, using default: {default_category}")
+            return default_category
             
-            # Projects
-            project_current = ['ongoing project', 'current task', 'in progress', 'this week', 'this month', 
-                             'active development', 'sprint', 'milestone', 'deadline', 'deliverable']
-            project_future = ['planned', 'scheduled', 'upcoming', 'next phase', 'future project', 
-                            'to be started', 'roadmap', 'backlog']
-            
-            if any(phrase in content for phrase in project_current + project_future):
-                main_category = "projects"
-                if any(phrase in content for phrase in project_future):
-                    sub_category = "next"
-                else:
-                    sub_category = "active"
-                return main_category, sub_category
-            
-            # Areas
-            area_work = ['business', 'career', 'job duties', 'professional development', 'work-related',
-                        'meeting notes', 'client', 'stakeholder', 'department']
-            area_personal = ['personal goals', 'family', 'home', 'lifestyle', 'relationships', 'finances',
-                           'budget', 'household', 'personal project']
-            area_health = ['fitness', 'diet', 'exercise', 'medical', 'mental health', 'wellness',
-                         'workout', 'nutrition', 'health goals']
-            
-            if any(phrase in content for phrase in area_work + area_personal + area_health):
-                main_category = "areas"
-                if any(phrase in content for phrase in area_work):
-                    sub_category = "work"
-                elif any(phrase in content for phrase in area_health):
-                    sub_category = "health"
-                else:
-                    sub_category = "personal"
-                return main_category, sub_category
-            
-            # Resources
-            resource_ref = ['guide', 'manual', 'documentation', 'reference material', 'instructions', 
-                          'specifications', 'api', 'handbook', 'guidelines']
-            resource_learn = ['tutorial', 'course', 'study material', 'learning resource', 'educational content',
-                            'training', 'workshop', 'lesson', 'examples']
-            resource_tools = ['tool', 'template', 'script', 'utility', 'software', 'application',
-                            'configuration', 'setup', 'automation']
-            
-            if any(phrase in content for phrase in resource_ref + resource_learn + resource_tools):
-                main_category = "resources"
-                if any(phrase in content for phrase in resource_learn):
-                    sub_category = "learning"
-                elif any(phrase in content for phrase in resource_tools):
-                    sub_category = "tools"
-                else:
-                    sub_category = "references"
-                return main_category, sub_category
-            
-            # Archives
-            archive_done = ['completed', 'finished', 'delivered', 'done', 'accomplished', 'closed',
-                          'final version', 'released', 'shipped']
-            archive_old = ['archived', 'outdated', 'old version', 'past', 'historical', 'deprecated',
-                         'legacy', 'obsolete', 'previous']
-            
-            if any(phrase in content for phrase in archive_done + archive_old):
-                main_category = "archives"
-                if any(phrase in content for phrase in archive_done):
-                    sub_category = "done"
-                else:
-                    sub_category = "old"
-                return main_category, sub_category
-            
-            # Check file name and path for additional context
-            file_name = os.path.basename(file_path).lower()
-            if any(word in file_name for word in ['old', 'archive', 'backup', 'deprecated']):
-                return "archives", "old"
-            if any(word in file_name for word in ['done', 'complete', 'final']):
-                return "archives", "done"
-            
-        # If no category determined or content analysis failed, return "other"
-        return "other", "other"
+        except Exception as e:
+            print(f"Error determining category: {str(e)}")
+            return default_category
 
     def _get_target_directory(self, main_category: str, sub_category: str) -> str:
         """Get the target directory for a file based on its PARA category"""

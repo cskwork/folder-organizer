@@ -17,16 +17,29 @@ class FileOrganizerGUI(ctk.CTk):
 
         # Initialize configuration
         self.config_manager = ConfigManager()
+        self.config_manager.add_observer(self)  # Register as observer
         
         # Initialize components
         self.file_analyzer = FileAnalyzer(
-            model=self.config_manager.get_setting("default_model"))
+            model=self.config_manager.get_setting("default_model"),
+            config_manager=self.config_manager)
         self.file_organizer = FileOrganizer(config_manager=self.config_manager)
         self.analysis_results = None
         
         # Configure window
         self.title("Intelligent File Organizer")
         self.geometry("800x700")  # Increased height for new controls
+
+        # Create menu bar
+        self.menu_bar = tk.Menu(self)
+        self.config(menu=self.menu_bar)
+
+        # Create File menu
+        self.file_menu = tk.Menu(self.menu_bar, tearoff=0)
+        self.menu_bar.add_cascade(label="File", menu=self.file_menu)
+        self.file_menu.add_command(label="Settings", command=self.show_settings)
+        self.file_menu.add_separator()
+        self.file_menu.add_command(label="Exit", command=self.quit)
         
         # Configure grid
         self.grid_columnconfigure(0, weight=1)
@@ -142,14 +155,23 @@ class FileOrganizerGUI(ctk.CTk):
 
     def show_settings(self):
         """Show settings dialog"""
-        settings = SettingsDialog(self, self.config_manager)
-        settings.wait_window()
+        settings_dialog = SettingsDialog(self, self.config_manager)
+        settings_dialog.focus()  # Give focus to the dialog
+
+    def on_settings_changed(self):
+        """Handle settings changes"""
+        # Update file analyzer model
+        self.file_analyzer.model = self.config_manager.get_setting("default_model")
         
-        # Update checkboxes based on new settings
+        # Update checkboxes with new values
         rules = self.config_manager.get_organization_rules()
         self.content_analysis_var.set(rules.get("use_content_analysis", True))
         self.file_type_var.set(rules.get("use_file_type", True))
+        self.date_var.set(rules.get("use_date", True))
         self.remove_empty_var.set(self.config_manager.get_setting("remove_empty_folders", True))
+
+        # Update any UI elements that depend on settings
+        self.update_preview()  # If you have a preview function
 
     def analyze_files(self):
         source_dir = self.source_entry.get()
@@ -218,16 +240,42 @@ class FileOrganizerGUI(ctk.CTk):
             CTkMessagebox(title="Error", message="Please analyze files first", icon="warning")
             return
             
+        print("\nGenerating preview...")
+        print(f"Analysis results: {self.analysis_results}")
+        
         self.preview_text.delete("1.0", tk.END)
         preview_text = "Preview of file organization:\n\n"
         
+        # Get smart rename setting
+        rules = self.config_manager.get_organization_rules()
+        smart_rename_enabled = rules.get("smart_rename_enabled", True)
+        print(f"Smart rename enabled: {smart_rename_enabled}")
+        
         for file_path, analysis in self.analysis_results.items():
             try:
+                print(f"\nProcessing file: {file_path}")
+                print(f"Analysis: {analysis}")
+                
                 main_category, sub_category = self.file_organizer.determine_para_category(file_path, analysis)
                 category_path = self.file_organizer.get_para_category_name(main_category, sub_category)
-                preview_text += f"{os.path.basename(file_path)} -> {category_path}\n"
+                print(f"Category: {main_category}/{sub_category} -> {category_path}")
+                
+                # Show original name and smart rename suggestion if enabled
+                original_name = os.path.basename(file_path)
+                if smart_rename_enabled and 'suggested_name' in analysis:
+                    print(f"Found rename suggestion: {analysis['suggested_name']}")
+                    new_name = f"{analysis['suggested_name']}{os.path.splitext(original_name)[1]}"
+                    preview_text += f"[Smart Rename] {original_name}\n"
+                    preview_text += f"  → New name: {new_name}\n"
+                    preview_text += f"  → Location: {category_path}\n\n"
+                else:
+                    if smart_rename_enabled:
+                        print("No rename suggestion found in analysis")
+                    preview_text += f"{original_name} → {category_path}\n\n"
+                    
             except Exception as e:
-                preview_text += f"{os.path.basename(file_path)} -> Error: {str(e)}\n"
+                print(f"Error processing file {file_path}: {str(e)}")
+                preview_text += f"{os.path.basename(file_path)} → Error: {str(e)}\n\n"
                 
         self.preview_text.insert("1.0", preview_text)
 

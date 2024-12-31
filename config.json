@@ -1,5 +1,5 @@
 {
-    "default_model": "llama3.1:latest",
+    "default_model": "llama3.2:latest",
     "ollama_url": "http://localhost:11434/api/generate",
     "max_file_size_mb": 1,
     "backup_enabled": false,
@@ -78,6 +78,7 @@
         "use_file_type": true,
         "use_date": true,
         "date_format": "%Y-%m",
-        "min_confidence_score": 0.7
+        "min_confidence_score": 0.7,
+        "smart_rename_enabled": true
     }
 }
