@@ -1,5 +1,5 @@
 {
-    "default_model": "llama3.2:latest",
+    "default_model": "exaone3.5:2.4b",
     "ollama_url": "http://localhost:11434/api/generate",
     "max_file_size_mb": 1,
     "backup_enabled": false,
