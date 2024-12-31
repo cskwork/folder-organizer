@@ -7,56 +7,54 @@
     "remove_empty_folders": true,
     "language": "korean",
     "parent_folders": {
-        "english": ["projects", "areas", "resources", "archives"],
-        "korean": ["프로젝트", "영역", "자료", "보관"]
+        "english": ["1_projects", "2_areas", "3_resources", "4_archives"],
+        "korean": ["1_프로젝트", "2_영역", "3_자료", "4_보관"]
     },
     "category_names": {
         "english": {
             "projects": {
-                "active": "projects/current_projects",
-                "next": "projects/upcoming_projects",
-                "other": "projects/other"
+                "active": "1_projects/active",
+                "next": "1_projects/next",
+                "completed": "4_archives/completed_projects"
             },
             "areas": {
-                "work": "areas/work",
-                "personal": "areas/personal",
-                "health": "areas/health",
-                "other": "areas/other"
+                "work": "2_areas/work",
+                "personal": "2_areas/personal",
+                "health": "2_areas/health",
+                "finance": "2_areas/finance"
             },
             "resources": {
-                "references": "resources/references",
-                "learning": "resources/learning",
-                "tools": "resources/tools",
-                "other": "resources/other"
+                "knowledge": "3_resources/knowledge",
+                "references": "3_resources/references",
+                "media": "3_resources/media"
             },
             "archives": {
-                "done": "archives/completed",
-                "old": "archives/old_files",
-                "other": "archives/other"
+                "projects": "4_archives/projects",
+                "resources": "4_archives/resources",
+                "quarterly": "4_archives/quarterly"
             }
         },
         "korean": {
             "projects": {
-                "active": "프로젝트/현재_프로젝트",
-                "next": "프로젝트/예정_프로젝트",
-                "other": "프로젝트/기타"
+                "active": "1_프로젝트/진행중",
+                "next": "1_프로젝트/예정",
+                "completed": "4_보관/완료된_프로젝트"
             },
             "areas": {
-                "work": "영역/업무",
-                "personal": "영역/개인",
-                "health": "영역/건강",
-                "other": "영역/기타"
+                "work": "2_영역/업무",
+                "personal": "2_영역/개인",
+                "health": "2_영역/건강",
+                "finance": "2_영역/재정"
             },
             "resources": {
-                "references": "자료/참고자료",
-                "learning": "자료/학습",
-                "tools": "자료/도구",
-                "other": "자료/기타"
+                "knowledge": "3_자료/지식",
+                "references": "3_자료/참고자료",
+                "media": "3_자료/미디어"
             },
             "archives": {
-                "done": "보관/완료됨",
-                "old": "보관/이전_파일",
-                "other": "보관/기타"
+                "projects": "4_보관/프로젝트",
+                "resources": "4_보관/자료",
+                "quarterly": "4_보관/분기별"
             }
         }
     },
