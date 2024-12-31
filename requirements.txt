@@ -1,10 +1,11 @@
 # UI Dependencies
-customtkinter==5.2.1  # Core UI framework
+customtkinter>=5.2.0  # Core UI framework
 CTkMessagebox==2.5    # UI messaging component
 Pillow>=10.0.0       # Required for image handling in UI
+tkinterdnd2>=0.3.0   # Drag-and-drop support
 
 # Core Processing
-requests==2.31.0      # HTTP requests
+requests>=2.31.0      # HTTP requests
 langdetect>=1.0.9    # Language detection
 python-dateutil==2.8.2  # Date parsing
 pathlib==1.0.1       # Path manipulation (note: built-in for Python 3.4+)
@@ -14,7 +15,7 @@ PyYAML>=6.0.1        # YAML processing
 # Document Processing
 python-docx>=0.8.11  # Word document processing
 PyPDF2>=3.0.0        # PDF processing
-python-magic-bin>=0.4.14  # File type detection
+python-magic-bin>=0.4.14  # File type detection and preview
 
 # System Integration
 watchdog==3.0.0      # File system monitoring
