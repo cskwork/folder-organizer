@@ -22,11 +22,11 @@ class FileOrganizerGUI(ctk.CTk):
         self.file_analyzer = FileAnalyzer(
             model=self.config_manager.get_setting("default_model"))
         self.file_organizer = FileOrganizer(config_manager=self.config_manager)
-        self.analysis_results = None  # Store analysis results
+        self.analysis_results = None
         
         # Configure window
         self.title("Intelligent File Organizer")
-        self.geometry("800x600")
+        self.geometry("800x700")  # Increased height for new controls
         
         # Configure grid
         self.grid_columnconfigure(0, weight=1)
@@ -77,9 +77,23 @@ class FileOrganizerGUI(ctk.CTk):
                                                     variable=self.remove_empty_var)
         self.remove_empty_checkbox.grid(row=0, column=3, padx=5, pady=5)
         
+        # Add preview frame
+        self.preview_frame = ctk.CTkFrame(self.main_frame)
+        self.preview_frame.grid(row=2, column=0, padx=10, pady=5, sticky="ew")
+        
+        self.preview_text = ctk.CTkTextbox(self.preview_frame, height=150)
+        self.preview_text.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+        
+        # Stats frame
+        self.stats_frame = ctk.CTkFrame(self.main_frame)
+        self.stats_frame.grid(row=3, column=0, padx=10, pady=5, sticky="ew")
+        
+        self.stats_label = ctk.CTkLabel(self.stats_frame, text="Statistics:")
+        self.stats_label.grid(row=0, column=0, padx=5, pady=5)
+        
         # Progress frame
         self.progress_frame = ctk.CTkFrame(self.main_frame)
-        self.progress_frame.grid(row=2, column=0, padx=10, pady=5, sticky="ew")
+        self.progress_frame.grid(row=4, column=0, padx=10, pady=5, sticky="ew")
         
         self.progress_bar = ctk.CTkProgressBar(self.progress_frame)
         self.progress_bar.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
@@ -90,23 +104,35 @@ class FileOrganizerGUI(ctk.CTk):
         
         # Action buttons
         self.button_frame = ctk.CTkFrame(self.main_frame)
-        self.button_frame.grid(row=3, column=0, padx=10, pady=5, sticky="ew")
+        self.button_frame.grid(row=5, column=0, padx=10, pady=5, sticky="ew")
         
         self.analyze_button = ctk.CTkButton(self.button_frame, text="Analyze",
                                           command=self.analyze_files)
         self.analyze_button.grid(row=0, column=0, padx=5, pady=5)
         
+        self.preview_button = ctk.CTkButton(self.button_frame, text="Preview",
+                                          command=self.preview_organization)
+        self.preview_button.grid(row=0, column=1, padx=5, pady=5)
+        
         self.organize_button = ctk.CTkButton(self.button_frame, text="Organize",
                                            command=self.organize_files)
-        self.organize_button.grid(row=0, column=1, padx=5, pady=5)
+        self.organize_button.grid(row=0, column=2, padx=5, pady=5)
+        
+        self.undo_button = ctk.CTkButton(self.button_frame, text="Undo",
+                                        command=self.undo_operation)
+        self.undo_button.grid(row=0, column=3, padx=5, pady=5)
+        
+        self.redo_button = ctk.CTkButton(self.button_frame, text="Redo",
+                                        command=self.redo_operation)
+        self.redo_button.grid(row=0, column=4, padx=5, pady=5)
         
         self.settings_button = ctk.CTkButton(self.button_frame, text="Settings",
                                            command=self.show_settings)
-        self.settings_button.grid(row=0, column=2, padx=5, pady=5)
+        self.settings_button.grid(row=0, column=5, padx=5, pady=5)
         
         self.stop_button = ctk.CTkButton(self.button_frame, text="Stop",
                                         command=self.stop_processing)
-        self.stop_button.grid(row=0, column=3, padx=5, pady=5)
+        self.stop_button.grid(row=0, column=6, padx=5, pady=5)
 
     def browse_source(self):
         directory = filedialog.askdirectory()
@@ -126,132 +152,111 @@ class FileOrganizerGUI(ctk.CTk):
         self.remove_empty_var.set(self.config_manager.get_setting("remove_empty_folders", True))
 
     def analyze_files(self):
-        """Analyze files in the selected directory"""
-        if not self.source_entry.get():
+        source_dir = self.source_entry.get()
+        if not source_dir:
             CTkMessagebox(title="Error", message="Please select a source directory", icon="warning")
             return
 
-        # Disable buttons during analysis
-        self.analyze_button.configure(state="disabled")
-        self.organize_button.configure(state="disabled")
-        self.settings_button.configure(state="disabled")
-
         try:
-            # Reset progress
+            self.status_label.configure(text="Analyzing files...")
             self.progress_bar.set(0)
-            self.status_label.configure(text="Starting analysis...")
+            self.update()
+
+            self.analysis_results = self.file_analyzer.analyze_directory(source_dir)
+            self.status_label.configure(text="Analysis complete")
+            self.progress_bar.set(100)
             
-            # Get analysis options
-            use_content = self.content_analysis_var.get()
-            use_type = self.file_type_var.get()
-            use_date = self.date_var.get()
-            
-            def analyze_thread():
-                try:
-                    self.analysis_results = self.file_analyzer.analyze_directory(
-                        self.source_entry.get(),
-                        use_content=use_content,
-                        use_type=use_type,
-                        use_date=use_date,
-                        progress_callback=self.update_progress
-                    )
-                    
-                    # Enable buttons and update status on completion
-                    self.after(0, lambda: [
-                        self.analyze_button.configure(state="normal"),
-                        self.organize_button.configure(state="normal"),
-                        self.settings_button.configure(state="normal"),
-                        self.status_label.configure(text="Analysis complete"),
-                        CTkMessagebox(title="Success", message="File analysis completed successfully", icon="info")
-                    ])
-                except Exception as e:
-                    # Handle errors
-                    self.after(0, lambda: [
-                        self.analyze_button.configure(state="normal"),
-                        self.organize_button.configure(state="normal"),
-                        self.settings_button.configure(state="normal"),
-                        self.status_label.configure(text="Analysis failed"),
-                        CTkMessagebox(title="Error", message=f"Analysis failed: {str(e)}", icon="error")
-                    ])
-            
-            # Start analysis in a separate thread
-            threading.Thread(target=analyze_thread, daemon=True).start()
-            
+            CTkMessagebox(title="Success", 
+                         message=f"Analysis complete. Found {len(self.analysis_results)} files.",
+                         icon="info")
+
         except Exception as e:
-            # Re-enable buttons on error
-            self.analyze_button.configure(state="normal")
-            self.organize_button.configure(state="normal")
-            self.settings_button.configure(state="normal")
-            CTkMessagebox(title="Error", message=f"Failed to start analysis: {str(e)}", icon="error")
+            CTkMessagebox(title="Error", 
+                         message=f"Error during analysis: {str(e)}", 
+                         icon="error")
+            self.status_label.configure(text="Analysis failed")
+            self.progress_bar.set(0)
 
     def organize_files(self):
         if not self.analysis_results:
-            CTkMessagebox(title="Error", message="Please analyze files first", icon="warning")
-            return
-
-        source_dir = self.source_entry.get()
-        if not source_dir or not os.path.exists(source_dir):
-            CTkMessagebox(title="Error", message="Please select a valid source directory",
+            CTkMessagebox(title="Error", 
+                         message="Please analyze files first", 
                          icon="warning")
             return
 
-        # Disable buttons during organization
-        self.analyze_button.configure(state="disabled")
-        self.organize_button.configure(state="disabled")
-        self.settings_button.configure(state="disabled")
-
+        source_dir = self.source_entry.get()
         try:
-            # Reset progress
+            self.file_organizer.organize_files(
+                source_dir=source_dir,
+                analysis_results=self.analysis_results,
+                remove_empty=self.remove_empty_var.get(),
+                progress_callback=self.update_progress
+            )
+        except KeyboardInterrupt:
+            self.status_label.configure(text="Operation cancelled")
             self.progress_bar.set(0)
-            self.status_label.configure(text="Starting organization...")
-
-            def organize_thread():
-                try:
-                    self.file_organizer.organize_files(
-                        source_dir,
-                        self.analysis_results,
-                        remove_empty=self.remove_empty_var.get(),
-                        progress_callback=self.update_progress
-                    )
-                    
-                    # Enable buttons and update status on completion
-                    self.after(0, lambda: [
-                        self.analyze_button.configure(state="normal"),
-                        self.organize_button.configure(state="normal"),
-                        self.settings_button.configure(state="normal"),
-                        self.status_label.configure(text="Organization complete"),
-                        CTkMessagebox(title="Success", message="File organization completed successfully", icon="info")
-                    ])
-                except Exception as e:
-                    # Handle errors
-                    self.after(0, lambda: [
-                        self.analyze_button.configure(state="normal"),
-                        self.organize_button.configure(state="normal"),
-                        self.settings_button.configure(state="normal"),
-                        self.status_label.configure(text="Organization failed"),
-                        CTkMessagebox(title="Error", message=f"Organization failed: {str(e)}", icon="error")
-                    ])
-            
-            # Start organization in a separate thread
-            threading.Thread(target=organize_thread, daemon=True).start()
-            
         except Exception as e:
-            # Re-enable buttons on error
-            self.analyze_button.configure(state="normal")
-            self.organize_button.configure(state="normal")
-            self.settings_button.configure(state="normal")
-            CTkMessagebox(title="Error", message=f"Failed to start organization: {str(e)}", icon="error")
+            CTkMessagebox(title="Error", 
+                         message=f"Error during organization: {str(e)}", 
+                         icon="error")
+            self.status_label.configure(text="Organization failed")
+            self.progress_bar.set(0)
 
     def update_progress(self, progress: float, status: str):
-        """Update progress bar and status label"""
-        self.progress_bar.set(progress / 100)  # Progress bar expects value between 0 and 1
+        self.progress_bar.set(progress / 100)
         self.status_label.configure(text=status)
-        self.update()  # Force GUI update
+        self.update()
 
     def stop_processing(self):
         self.file_analyzer.stop()
         self.file_organizer.stop()
         self.status_label.configure(text="Processing stopped")
+
+    def preview_organization(self):
+        """Preview how files will be organized"""
+        if not self.analysis_results:
+            CTkMessagebox(title="Error", message="Please analyze files first", icon="warning")
+            return
+            
+        self.preview_text.delete("1.0", tk.END)
+        preview_text = "Preview of file organization:\n\n"
+        
+        for file_path, analysis in self.analysis_results.items():
+            try:
+                main_category, sub_category = self.file_organizer.determine_para_category(file_path, analysis)
+                category_path = self.file_organizer.get_para_category_name(main_category, sub_category)
+                preview_text += f"{os.path.basename(file_path)} -> {category_path}\n"
+            except Exception as e:
+                preview_text += f"{os.path.basename(file_path)} -> Error: {str(e)}\n"
+                
+        self.preview_text.insert("1.0", preview_text)
+
+    def update_stats(self):
+        """Update statistics display"""
+        stats = self.file_organizer.get_stats()
+        stats_text = (
+            f"Processed: {stats['processed']}\n"
+            f"Succeeded: {stats['succeeded']}\n"
+            f"Failed: {stats['failed']}\n"
+            f"Skipped: {stats['skipped']}"
+        )
+        self.stats_label.configure(text=stats_text)
+
+    def undo_operation(self):
+        """Undo last operation"""
+        if self.file_organizer.undo():
+            self.update_stats()
+            CTkMessagebox(title="Success", message="Operation undone successfully", icon="info")
+        else:
+            CTkMessagebox(title="Error", message="Nothing to undo", icon="warning")
+
+    def redo_operation(self):
+        """Redo last undone operation"""
+        if self.file_organizer.redo():
+            self.update_stats()
+            CTkMessagebox(title="Success", message="Operation redone successfully", icon="info")
+        else:
+            CTkMessagebox(title="Error", message="Nothing to redo", icon="warning")
 
 if __name__ == "__main__":
     app = FileOrganizerGUI()
