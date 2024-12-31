@@ -1,12 +1,9 @@
 import customtkinter as ctk
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog
 import os
-import json
 from datetime import datetime
-import shutil
 from pathlib import Path
-import requests
 from file_analyzer import FileAnalyzer
 from file_organizer import FileOrganizer
 from config_manager import ConfigManager

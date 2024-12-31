@@ -11,7 +11,7 @@ class ConfigManager:
     def _load_config(self) -> Dict[str, Any]:
         """Load configuration from file or create default"""
         try:
-            with open(self.config_path, 'r') as f:
+            with open(self.config_path, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except FileNotFoundError:
             return self._create_default_config()
