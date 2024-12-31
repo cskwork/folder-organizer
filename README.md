@@ -1,58 +1,130 @@
-# Intelligent File Organizer (PARA)
+# Intelligent File Organizer (IFO)
 
-An AI-powered file organization tool that automatically categorizes files using the PARA method (Projects, Areas, Resources, Archives) and content analysis.
+A sophisticated file organization tool that leverages AI to automatically categorize and organize files using the PARA method (Projects, Areas, Resources, Archives). Built with Python and featuring a modern GUI interface.
 
-## Features
+## Key Features
 
-- 🤖 AI-powered content analysis using Ollama LLM
-- 📁 PARA methodology-based organization
-- 🌏 Multilingual support (English/Korean)
-- 📄 Rich metadata extraction
-- 🎨 Modern GUI interface
-- 🔍 Intelligent content-based categorization
+- 🤖 **AI-Powered Analysis**: Uses Ollama LLM for intelligent content analysis and file categorization
+- 📁 **PARA Methodology**: Organizes files according to the PARA system:
+  - Projects: Active and upcoming work
+  - Areas: Ongoing responsibilities
+  - Resources: Reference materials and tools
+  - Archives: Completed or inactive items
+- 🎨 **Modern GUI Interface**: Built with CustomTkinter for a clean, modern look
+- 🌏 **Multilingual Support**: Full support for English and Korean interfaces
+- 📊 **Rich File Analysis**:
+  - Comprehensive metadata extraction
+  - Content-based categorization
+  - File type detection
+  - Document analysis (PDF, Office files, emails, images)
+- ⚙️ **Advanced Features**:
+  - Undo/Redo operations
+  - Preview organization before applying
+  - Progress tracking
+  - Batch processing
+  - Empty folder cleanup
+  - Automatic backups
 
-## Prerequisites
+## System Requirements
 
 - Python 3.10 or higher
 - Windows 10/11
+- 8GB RAM recommended
 - [Ollama](https://ollama.ai/) installed and running locally
-- At least 8GB RAM recommended
 
 ## Installation
 
-1. Clone this repository
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Install and start Ollama:
-   - Download from [ollama.ai](https://ollama.ai)
-   - Pull the required model:
-     ```bash
-     ollama pull llama2:3.1
-     ```
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/intelligent-file-organizer.git
+cd intelligent-file-organizer
+```
 
-## Usage
+2. Create and activate a virtual environment:
+```bash
+# Windows
+python -m venv venv
+venv\Scripts\activate
 
-1. Start the application:
-   ```bash
-   python main.py
-   ```
+# Linux/macOS
+python -m venv venv
+source venv/bin/activate
+```
 
-2. Using the application:
-   - Select source directory
-   - Click "Analyze" to start file analysis
-   - Review results
-   - Click "Organize" to begin file organization
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+4. Install and start Ollama:
+- Download from [ollama.ai](https://ollama.ai)
+- Install the required model:
+```bash
+ollama pull mistral
+```
+
+## Quick Start
+
+1. Run the application:
+```bash
+# Windows
+run.bat
+
+# Linux/macOS
+./run.sh
+```
+
+2. Using the interface:
+- Select your source directory
+- Choose organization options:
+  - Content Analysis: Uses AI to analyze file contents
+  - File Type Organization: Groups by file types
+  - Date Organization: Organizes by creation/modification date
+  - Remove Empty Folders: Cleans up empty directories
+- Click "Analyze" to scan files
+- Use "Preview" to see the proposed organization
+- Click "Organize" to execute the organization
 
 ## Configuration
 
-Edit `config.json` to configure:
-- Language (english/korean)
-- AI model settings
+Edit `config.json` to customize:
+
+- Language settings (english/korean)
+- AI model configuration
 - File size limits
-- Backup options
+- Backup preferences
+- PARA category names and paths
+- Supported file extensions
+- Organization rules and thresholds
+
+## File Type Support
+
+- Documents: .txt, .doc, .docx, .pdf, .rtf, .odt, .md, .csv, .json, .xml
+- Images: .jpg, .jpeg, .png, .gif, .bmp, .tiff, .webp, .svg
+- Videos: .mp4, .avi, .mov, .wmv, .flv, .mkv, .webm
+- Audio: .mp3, .wav, .ogg, .m4a, .flac, .aac
+- Archives: .zip, .rar, .7z, .tar, .gz, .bz2
+- Code: .py, .js, .html, .css, .java, .cpp, .h, .cs, .php
+- Data: .xlsx, .xls, .db, .sqlite, .sql
+
+## Error Handling
+
+The application includes comprehensive error handling:
+- Automatic retries for failed operations
+- Detailed error logging
+- User-friendly error messages
+- Operation rollback capability
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-MIT License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter) for the modern GUI framework
+- [Ollama](https://ollama.ai/) for the AI model integration
+- The PARA method by Tiago Forte
