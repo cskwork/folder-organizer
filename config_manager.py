@@ -1,16 +1,70 @@
 import json
 import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional, Union
+from pydantic import BaseModel, Field, validator
+import logging
+
+class LLMProviderConfig(BaseModel):
+    """Configuration for LLM providers."""
+    url: str = Field(..., description="API endpoint URL")
+    api_key: Optional[str] = Field(default="", description="API key for authentication")
+    site_url: Optional[str] = Field(default="", description="Site URL for HTTP-Referer header")
+    app_name: Optional[str] = Field(default="", description="Application name for X-Title header")
+    default_model: str = Field(..., description="Default model to use")
+    configured: bool = Field(default=True, description="Whether this provider is configured")
+
+class LLMConfig(BaseModel):
+    """LLM configuration settings."""
+    default_provider: str = Field(default="ollama", description="Default LLM provider")
+    providers: Dict[str, LLMProviderConfig] = Field(default_factory=dict, description="Available providers")
+    model_configs: Dict[str, Dict[str, Any]] = Field(default_factory=dict, description="Model-specific configurations")
+
+class OrganizationRules(BaseModel):
+    """File organization rules configuration."""
+    use_content_analysis: bool = Field(default=True, description="Enable content analysis")
+    use_file_type: bool = Field(default=True, description="Enable file type organization")
+    use_date: bool = Field(default=True, description="Enable date organization")
+    date_format: str = Field(default="%Y-%m", description="Date format for organization")
+    min_confidence_score: float = Field(default=0.7, ge=0.0, le=1.0, description="Minimum confidence score")
+    smart_rename_enabled: bool = Field(default=True, description="Enable smart file renaming")
+
+class AppConfig(BaseModel):
+    """Main application configuration model."""
+    llm_config: LLMConfig = Field(default_factory=LLMConfig, description="LLM configuration")
+    max_file_size_mb: int = Field(default=1, ge=1, le=100, description="Maximum file size in MB")
+    backup_enabled: bool = Field(default=False, description="Enable backup creation")
+    date_organization_enabled: bool = Field(default=False, description="Enable date-based organization")
+    remove_empty_folders: bool = Field(default=True, description="Remove empty folders after organization")
+    language: str = Field(default="english", description="UI language")
+    parent_folders: Dict[str, List[str]] = Field(default_factory=dict, description="Language-specific folder names")
+    supported_extensions: Dict[str, List[str]] = Field(default_factory=dict, description="Supported file extensions by category")
+    organization_rules: OrganizationRules = Field(default_factory=OrganizationRules, description="Organization rules")
+    category_names: Optional[Dict[str, Dict[str, Dict[str, str]]]] = Field(default=None, description="Localized category names")
+    batch_size: int = Field(default=50, ge=1, le=1000, description="Batch processing size")
+    
+    @validator('language')
+    def validate_language(cls, v: str) -> str:
+        allowed_languages = ['english', 'korean']
+        if v not in allowed_languages:
+            raise ValueError(f'Language must be one of {allowed_languages}')
+        return v
 
 class ConfigManager:
-    _instance = None
-    _observers = []
+    _instance: Optional['ConfigManager'] = None
+    _observers: List[Any] = []
+    
+    config_path: str
+    config: Dict[str, Any]
+    _validated_config: Optional[AppConfig]
+    logger: logging.Logger
 
-    def __new__(cls, config_path: str = "config.json"):
+    def __new__(cls, config_path: str = "config.json") -> 'ConfigManager':
         if cls._instance is None:
             cls._instance = super(ConfigManager, cls).__new__(cls)
             cls._instance.config_path = config_path
+            cls._instance._validated_config = None
+            cls._instance._setup_logging()
             cls._instance.config = cls._instance._load_config()
         else:
             # Update config path if different and reload config
@@ -19,17 +73,31 @@ class ConfigManager:
                 cls._instance.config = cls._instance._load_config()
         return cls._instance
 
-    def __init__(self, config_path: str = "config.json"):
+    def __init__(self, config_path: str = "config.json") -> None:
         # __new__ handles initialization
         pass
+
+    def _setup_logging(self) -> None:
+        """Setup logging for configuration management."""
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        self.logger = logging.getLogger(__name__)
 
     def _load_config(self) -> Dict[str, Any]:
         """Load configuration from file or create default"""
         try:
             with open(self.config_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                config = json.load(f)
+                self.logger.info(f"Configuration loaded from {self.config_path}")
+                return config
         except FileNotFoundError:
+            self.logger.warning(f"Configuration file not found: {self.config_path}. Creating default configuration.")
             return self._create_default_config()
+        except json.JSONDecodeError as e:
+            self.logger.error(f"Invalid JSON in configuration file: {e}")
+            raise ValueError(f"Configuration file contains invalid JSON: {e}")
 
     def _create_default_config(self) -> Dict[str, Any]:
         """Create and save default configuration"""
@@ -79,17 +147,38 @@ class ConfigManager:
         self.save_config(config)
         return config
 
-    def save_config(self, config: Dict[str, Any] = None) -> None:
+    def validate_config(self) -> AppConfig:
+        """Validate configuration using Pydantic model."""
+        try:
+            if self._validated_config is None:
+                self._validated_config = AppConfig(**self.config)
+                self.logger.info("Configuration validation successful")
+            return self._validated_config
+        except Exception as e:
+            self.logger.error(f"Configuration validation failed: {e}")
+            raise ValueError(f"Invalid configuration: {e}")
+
+    def save_config(self, config: Optional[Dict[str, Any]] = None) -> None:
         """Save configuration to file"""
         if config is not None:
             self.config = config
             
-        with open(self.config_path, 'w', encoding='utf-8') as f:
-            json.dump(self.config, f, indent=4)
+        try:
+            # Validate before saving
+            self._validated_config = None  # Reset validation cache
+            self.validate_config()
             
-        # Reload config to ensure all instances have the latest version
-        self.config = self._load_config()
-        self.notify_observers()  # Notify observers when config is saved
+            with open(self.config_path, 'w', encoding='utf-8') as f:
+                json.dump(self.config, f, indent=4)
+                
+            self.logger.info(f"Configuration saved to {self.config_path}")
+            
+            # Reload config to ensure all instances have the latest version
+            self.config = self._load_config()
+            self.notify_observers()  # Notify observers when config is saved
+        except Exception as e:
+            self.logger.error(f"Failed to save configuration: {e}")
+            raise
 
     def get_setting(self, key: str, default: Any = None) -> Any:
         """Get a configuration setting by key"""
@@ -131,17 +220,21 @@ class ConfigManager:
             "app_name": provider_config.get("app_name", "")
         }
 
-    def add_observer(self, observer):
+    def add_observer(self, observer: Any) -> None:
         """Add an observer that will be notified of config changes"""
         if observer not in self._observers:
             self._observers.append(observer)
 
-    def remove_observer(self, observer):
+    def remove_observer(self, observer: Any) -> None:
         """Remove an observer"""
         if observer in self._observers:
             self._observers.remove(observer)
 
-    def notify_observers(self):
+    def notify_observers(self) -> None:
         """Notify all observers of config changes"""
         for observer in self._observers:
-            observer.on_settings_changed()
+            if hasattr(observer, 'on_settings_changed'):
+                try:
+                    observer.on_settings_changed()
+                except Exception as e:
+                    self.logger.error(f"Error notifying observer {observer}: {e}")
