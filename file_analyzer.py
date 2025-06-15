@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional
 import threading
-import win32com.client
+# import win32com.client  # Windows-only, disabled for Linux
 from PIL import Image
 from PIL.ExifTags import TAGS
 import email
@@ -261,27 +261,9 @@ class FileAnalyzer:
             }
 
     def _get_office_metadata(self, file_path: str) -> Dict[str, Any]:
-        """Extract metadata from Microsoft Office files"""
-        try:
-            app = win32com.client.Dispatch("Word.Application")
-            app.Visible = False
-            doc = app.Documents.Open(file_path)
-            
-            metadata = {
-                "author": doc.Author,
-                "title": doc.Title,
-                "subject": doc.Subject,
-                "keywords": doc.Keywords,
-                "last_author": doc.LastAuthor,
-                "revision": doc.Revisions.Count,
-                "comments": doc.Comments.Count
-            }
-            
-            doc.Close()
-            app.Quit()
-            return metadata
-        except:
-            return {}
+        """Extract metadata from Microsoft Office files (Linux fallback)"""
+        # Note: Windows COM support disabled for Linux compatibility
+        return {}
 
     def _get_pdf_metadata(self, file_path: str) -> Dict[str, Any]:
         """Extract metadata from PDF files"""
