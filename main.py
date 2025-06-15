@@ -4,33 +4,37 @@ from tkinter import filedialog
 import os
 from datetime import datetime
 from pathlib import Path
+from typing import Optional, Dict, Any
 from file_analyzer import FileAnalyzer
 from file_organizer import FileOrganizer
 from config_manager import ConfigManager
 from settings_dialog import SettingsDialog
 from CTkMessagebox import CTkMessagebox
+from design_tokens import get_component_style, get_colors, get_spacing, ComponentSize, ThemeMode
+from logging_config import StructuredLogger
 import threading
 
 class FileOrganizerGUI(ctk.CTk):
+    """Main GUI application with modern design tokens system."""
+    
     def __init__(self):
         super().__init__()
+
+        # Initialize logging
+        self.logger = StructuredLogger('FileOrganizer.GUI')
+        self.logger.info("Initializing File Organizer GUI")
 
         # Initialize configuration
         self.config_manager = ConfigManager()
         self.config_manager.add_observer(self)  # Register as observer
         
-        # Set theme and colors
+        # Set theme and colors using design tokens
         ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("blue")
         
-        # Custom colors
-        self.colors = {
-            "primary": "#4A90E2",
-            "secondary": "#F5F7FA",
-            "accent": "#34C759",
-            "text": "#2C3E50",
-            "border": "#E1E8ED"
-        }
+        # Get design tokens
+        self.colors = get_colors()
+        self.spacing = get_spacing()
         
         # Initialize components
         self.file_analyzer = FileAnalyzer(config_manager=self.config_manager)
@@ -40,14 +44,14 @@ class FileOrganizerGUI(ctk.CTk):
         # Configure window
         self.title("Intelligent File Organizer")
         self.geometry("1200x800")  # Larger default size
-        self.configure(fg_color=self.colors["secondary"])
+        self.configure(fg_color=self.colors.surface)
 
         # Create menu bar with modern styling
-        self.menu_bar = tk.Menu(self, bg=self.colors["secondary"], fg=self.colors["text"])
+        self.menu_bar = tk.Menu(self, bg=self.colors.surface, fg=self.colors.text_primary)
         self.config(menu=self.menu_bar)
 
         # Create File menu
-        self.file_menu = tk.Menu(self.menu_bar, tearoff=0, bg=self.colors["secondary"], fg=self.colors["text"])
+        self.file_menu = tk.Menu(self.menu_bar, tearoff=0, bg=self.colors.surface, fg=self.colors.text_primary)
         self.menu_bar.add_cascade(label="File", menu=self.file_menu)
         self.file_menu.add_command(label="Settings", command=self.show_settings)
         self.file_menu.add_separator()
@@ -58,169 +62,159 @@ class FileOrganizerGUI(ctk.CTk):
         self.grid_rowconfigure(0, weight=1)
         
         # Create main frame with modern styling
-        self.main_frame = ctk.CTkFrame(self, fg_color=self.colors["secondary"], corner_radius=15)
-        self.main_frame.grid(row=0, column=0, padx=30, pady=30, sticky="nsew")
+        main_frame_style = get_component_style("frame", "surface")
+        self.main_frame = ctk.CTkFrame(self, **main_frame_style)
+        self.main_frame.grid(row=0, column=0, padx=self.spacing.xl, pady=self.spacing.xl, sticky="nsew")
         self.main_frame.grid_columnconfigure(0, weight=1)
         
         # Source directory selection with modern styling
-        self.source_frame = ctk.CTkFrame(self.main_frame, corner_radius=10, fg_color="white", border_width=1, border_color=self.colors["border"])
-        self.source_frame.grid(row=0, column=0, padx=15, pady=10, sticky="ew")
+        source_frame_style = get_component_style("frame", "card")
+        self.source_frame = ctk.CTkFrame(self.main_frame, **source_frame_style)
+        self.source_frame.grid(row=0, column=0, padx=self.spacing.md, pady=self.spacing.sm, sticky="ew")
         
-        self.source_label = ctk.CTkLabel(self.source_frame, text="Source Directory:", text_color=self.colors["text"], font=("Segoe UI", 12))
-        self.source_label.grid(row=0, column=0, padx=10, pady=10)
+        label_style = get_component_style("label", "default")
+        self.source_label = ctk.CTkLabel(self.source_frame, text="Source Directory:", **label_style)
+        self.source_label.grid(row=0, column=0, padx=self.spacing.sm, pady=self.spacing.sm)
         
-        self.source_entry = ctk.CTkEntry(self.source_frame, width=500, height=35, corner_radius=8, border_color=self.colors["border"])
-        self.source_entry.grid(row=0, column=1, padx=10, pady=10)
+        entry_style = get_component_style("input", "default")
+        entry_style["width"] = 500
+        self.source_entry = ctk.CTkEntry(self.source_frame, **entry_style)
+        self.source_entry.grid(row=0, column=1, padx=self.spacing.sm, pady=self.spacing.sm)
         
+        button_style = get_component_style("button", "primary")
         self.source_button = ctk.CTkButton(self.source_frame, text="Browse", 
                                          command=self.browse_source,
-                                         fg_color=self.colors["primary"],
-                                         hover_color=self.colors["accent"],
-                                         height=35,
-                                         corner_radius=8)
-        self.source_button.grid(row=0, column=2, padx=10, pady=10)
+                                         **button_style)
+        self.source_button.grid(row=0, column=2, padx=self.spacing.sm, pady=self.spacing.sm)
         
         # Organization options with modern styling
-        self.options_frame = ctk.CTkFrame(self.main_frame, corner_radius=10, fg_color="white", border_width=1, border_color=self.colors["border"])
-        self.options_frame.grid(row=1, column=0, padx=15, pady=10, sticky="ew")
+        options_frame_style = get_component_style("frame", "card")
+        self.options_frame = ctk.CTkFrame(self.main_frame, **options_frame_style)
+        self.options_frame.grid(row=1, column=0, padx=self.spacing.md, pady=self.spacing.sm, sticky="ew")
         
         rules = self.config_manager.get_organization_rules()
         
-        checkbox_style = {
-            "corner_radius": 6,
-            "border_width": 2,
-            "text_color": self.colors["text"],
-            "font": ("Segoe UI", 12),
-            "hover_color": self.colors["accent"]
-        }
+        checkbox_style = get_component_style("checkbox", "default")
         
         self.content_analysis_var = tk.BooleanVar(value=rules.get("use_content_analysis", True))
         self.content_checkbox = ctk.CTkCheckBox(self.options_frame, text="Content Analysis",
                                               variable=self.content_analysis_var,
                                               **checkbox_style)
-        self.content_checkbox.grid(row=0, column=0, padx=15, pady=15)
+        self.content_checkbox.grid(row=0, column=0, padx=self.spacing.md, pady=self.spacing.md)
         
         self.file_type_var = tk.BooleanVar(value=rules.get("use_file_type", True))
         self.file_type_checkbox = ctk.CTkCheckBox(self.options_frame, text="File Type Organization",
                                                  variable=self.file_type_var,
                                                  **checkbox_style)
-        self.file_type_checkbox.grid(row=0, column=1, padx=15, pady=15)
+        self.file_type_checkbox.grid(row=0, column=1, padx=self.spacing.md, pady=self.spacing.md)
         
         self.date_var = tk.BooleanVar(value=rules.get("use_date", True))
         self.date_checkbox = ctk.CTkCheckBox(self.options_frame, text="Date Organization",
                                            variable=self.date_var,
                                            **checkbox_style)
-        self.date_checkbox.grid(row=0, column=2, padx=15, pady=15)
+        self.date_checkbox.grid(row=0, column=2, padx=self.spacing.md, pady=self.spacing.md)
         
         self.remove_empty_var = tk.BooleanVar(value=self.config_manager.get_setting("remove_empty_folders", True))
         self.remove_empty_checkbox = ctk.CTkCheckBox(self.options_frame, text="Remove Empty Folders",
                                                     variable=self.remove_empty_var,
                                                     **checkbox_style)
-        self.remove_empty_checkbox.grid(row=0, column=3, padx=15, pady=15)
+        self.remove_empty_checkbox.grid(row=0, column=3, padx=self.spacing.md, pady=self.spacing.md)
         
         # Preview frame with modern styling
-        self.preview_frame = ctk.CTkFrame(self.main_frame, corner_radius=10, fg_color="white", border_width=1, border_color=self.colors["border"])
-        self.preview_frame.grid(row=2, column=0, padx=15, pady=10, sticky="nsew")
+        preview_frame_style = get_component_style("frame", "card")
+        self.preview_frame = ctk.CTkFrame(self.main_frame, **preview_frame_style)
+        self.preview_frame.grid(row=2, column=0, padx=self.spacing.md, pady=self.spacing.sm, sticky="nsew")
         self.preview_frame.grid_columnconfigure(0, weight=1)
         
-        self.preview_text = ctk.CTkTextbox(self.preview_frame, height=200, width=1100,
-                                         corner_radius=8,
-                                         border_width=1,
-                                         border_color=self.colors["border"],
-                                         fg_color="white")
-        self.preview_text.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+        textbox_style = get_component_style("textbox", "default")
+        textbox_style.update({"height": 200, "width": 1100})
+        self.preview_text = ctk.CTkTextbox(self.preview_frame, **textbox_style)
+        self.preview_text.grid(row=0, column=0, padx=self.spacing.sm, pady=self.spacing.sm, sticky="nsew")
         
         # Stats frame with modern styling
-        self.stats_frame = ctk.CTkFrame(self.main_frame, corner_radius=10, fg_color="white", border_width=1, border_color=self.colors["border"])
-        self.stats_frame.grid(row=3, column=0, padx=15, pady=10, sticky="ew")
+        stats_frame_style = get_component_style("frame", "card")
+        self.stats_frame = ctk.CTkFrame(self.main_frame, **stats_frame_style)
+        self.stats_frame.grid(row=3, column=0, padx=self.spacing.md, pady=self.spacing.sm, sticky="ew")
         
-        self.stats_label = ctk.CTkLabel(self.stats_frame, text="Statistics:", 
-                                      text_color=self.colors["text"],
-                                      font=("Segoe UI", 12, "bold"))
-        self.stats_label.grid(row=0, column=0, padx=10, pady=10)
+        stats_label_style = get_component_style("label", "heading")
+        self.stats_label = ctk.CTkLabel(self.stats_frame, text="Statistics:", **stats_label_style)
+        self.stats_label.grid(row=0, column=0, padx=self.spacing.sm, pady=self.spacing.sm)
         
         # Progress frame with modern styling
-        self.progress_frame = ctk.CTkFrame(self.main_frame, corner_radius=10, fg_color="white", border_width=1, border_color=self.colors["border"])
-        self.progress_frame.grid(row=4, column=0, padx=15, pady=10, sticky="ew")
+        progress_frame_style = get_component_style("frame", "card")
+        self.progress_frame = ctk.CTkFrame(self.main_frame, **progress_frame_style)
+        self.progress_frame.grid(row=4, column=0, padx=self.spacing.md, pady=self.spacing.sm, sticky="ew")
         
-        self.progress_bar = ctk.CTkProgressBar(self.progress_frame, 
-                                             height=15,
-                                             corner_radius=8,
-                                             progress_color=self.colors["accent"])
-        self.progress_bar.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+        progressbar_style = get_component_style("progressbar", "default")
+        self.progress_bar = ctk.CTkProgressBar(self.progress_frame, **progressbar_style)
+        self.progress_bar.grid(row=0, column=0, padx=self.spacing.sm, pady=self.spacing.sm, sticky="ew")
         self.progress_bar.set(0)
         
-        self.status_label = ctk.CTkLabel(self.progress_frame, text="Ready",
-                                       text_color=self.colors["text"],
-                                       font=("Segoe UI", 12))
-        self.status_label.grid(row=1, column=0, padx=10, pady=5)
+        status_label_style = get_component_style("label", "secondary")
+        self.status_label = ctk.CTkLabel(self.progress_frame, text="Ready", **status_label_style)
+        self.status_label.grid(row=1, column=0, padx=self.spacing.sm, pady=self.spacing.xs)
         
         # Action buttons with modern styling
         self.button_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        self.button_frame.grid(row=5, column=0, padx=15, pady=15, sticky="ew")
+        self.button_frame.grid(row=5, column=0, padx=self.spacing.md, pady=self.spacing.md, sticky="ew")
         
-        button_style = {
-            "height": 38,
-            "corner_radius": 8,
-            "font": ("Segoe UI", 12),
-            "hover_color": self.colors["accent"]
-        }
+        button_style = get_component_style("button", "primary")
         
         self.analyze_button = ctk.CTkButton(self.button_frame, text="Analyze",
                                           command=self.analyze_files,
-                                          fg_color=self.colors["primary"],
                                           **button_style)
-        self.analyze_button.grid(row=0, column=0, padx=8, pady=5)
+        self.analyze_button.grid(row=0, column=0, padx=self.spacing.xs, pady=self.spacing.xs)
         
         self.preview_button = ctk.CTkButton(self.button_frame, text="Preview",
                                           command=self.preview_organization,
-                                          fg_color=self.colors["primary"],
                                           **button_style)
-        self.preview_button.grid(row=0, column=1, padx=8, pady=5)
+        self.preview_button.grid(row=0, column=1, padx=self.spacing.xs, pady=self.spacing.xs)
         
+        organize_button_style = get_component_style("button", "success")
         self.organize_button = ctk.CTkButton(self.button_frame, text="Organize",
                                            command=self.organize_files,
-                                           fg_color=self.colors["primary"],
-                                           **button_style)
-        self.organize_button.grid(row=0, column=2, padx=8, pady=5)
+                                           **organize_button_style)
+        self.organize_button.grid(row=0, column=2, padx=self.spacing.xs, pady=self.spacing.xs)
         
+        secondary_button_style = get_component_style("button", "secondary")
         self.undo_button = ctk.CTkButton(self.button_frame, text="Undo",
                                         command=self.undo_operation,
-                                        fg_color=self.colors["primary"],
-                                        **button_style)
-        self.undo_button.grid(row=0, column=3, padx=8, pady=5)
+                                        **secondary_button_style)
+        self.undo_button.grid(row=0, column=3, padx=self.spacing.xs, pady=self.spacing.xs)
         
         self.redo_button = ctk.CTkButton(self.button_frame, text="Redo",
                                         command=self.redo_operation,
-                                        fg_color=self.colors["primary"],
-                                        **button_style)
-        self.redo_button.grid(row=0, column=4, padx=8, pady=5)
+                                        **secondary_button_style)
+        self.redo_button.grid(row=0, column=4, padx=self.spacing.xs, pady=self.spacing.xs)
         
         self.settings_button = ctk.CTkButton(self.button_frame, text="Settings",
                                            command=self.show_settings,
-                                           fg_color=self.colors["primary"],
-                                           **button_style)
-        self.settings_button.grid(row=0, column=5, padx=8, pady=5)
+                                           **secondary_button_style)
+        self.settings_button.grid(row=0, column=5, padx=self.spacing.xs, pady=self.spacing.xs)
         
+        stop_button_style = get_component_style("button", "error")
         self.stop_button = ctk.CTkButton(self.button_frame, text="Stop",
                                         command=self.stop_processing,
-                                        fg_color="#E74C3C",  # Red for stop button
-                                        **button_style)
-        self.stop_button.grid(row=0, column=6, padx=8, pady=5)
+                                        **stop_button_style)
+        self.stop_button.grid(row=0, column=6, padx=self.spacing.xs, pady=self.spacing.xs)
 
-    def browse_source(self):
+    def browse_source(self) -> None:
+        """Browse and select source directory."""
         directory = filedialog.askdirectory()
         if directory:
+            self.logger.info(f"Source directory selected: {directory}")
             self.source_entry.delete(0, tk.END)
             self.source_entry.insert(0, directory)
 
-    def show_settings(self):
+    def show_settings(self) -> None:
         """Show settings dialog"""
+        self.logger.info("Opening settings dialog")
         settings_dialog = SettingsDialog(self, self.config_manager)
         settings_dialog.focus()  # Give focus to the dialog
 
-    def on_settings_changed(self):
+    def on_settings_changed(self) -> None:
         """Handle settings changes"""
+        self.logger.info("Settings changed, updating UI")
         # Update organization rules
         rules = self.config_manager.get_organization_rules()
         self.content_analysis_var.set(rules.get("use_content_analysis", True))
@@ -283,12 +277,15 @@ class FileOrganizerGUI(ctk.CTk):
             self.status_label.configure(text="Organization failed")
             self.progress_bar.set(0)
 
-    def update_progress(self, progress: float, status: str):
+    def update_progress(self, progress: float, status: str) -> None:
+        """Update progress bar and status label."""
         self.progress_bar.set(progress / 100)
         self.status_label.configure(text=status)
         self.update()
 
-    def stop_processing(self):
+    def stop_processing(self) -> None:
+        """Stop all ongoing operations."""
+        self.logger.info("User requested to stop processing")
         self.file_analyzer.stop()
         self.file_organizer.stop()
         self.status_label.configure(text="Processing stopped")
