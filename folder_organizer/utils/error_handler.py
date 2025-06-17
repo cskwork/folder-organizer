@@ -1,9 +1,7 @@
 import logging
-import asyncio
-from typing import Optional, Any, Callable, Dict
+from typing import Optional, Any, Callable
 from pathlib import Path
-from logging_config import StructuredLogger
-from interfaces import IErrorHandler
+from ..config.logging_config import StructuredLogger
 
 class FileOrganizerError(Exception):
     """Base exception class for file organizer errors"""
@@ -25,7 +23,7 @@ class FileOperationError(FileOrganizerError):
     """Exception raised when file operations fail"""
     pass
 
-class ErrorHandler(IErrorHandler):
+class ErrorHandler:
     """Enhanced error handler with structured logging and retry logic."""
     
     def __init__(self, max_retries: int = 3):
@@ -153,61 +151,3 @@ class ErrorHandler(IErrorHandler):
             'successful_retries': 0
         }
         self.logger.info("Error statistics reset")
-
-    async def retry_operation_async(self, operation: Callable, *args, **kwargs) -> Any:
-        """Retry operation asynchronously."""
-        operation_name = getattr(operation, '__name__', 'unknown_operation')
-        
-        self.logger.add_context(
-            operation=operation_name,
-            max_retries=self.max_retries
-        )
-        
-        try:
-            for attempt in range(self.max_retries + 1):
-                try:
-                    if asyncio.iscoroutinefunction(operation):
-                        result = await operation(*args, **kwargs)
-                    else:
-                        # Run sync operation in executor
-                        loop = asyncio.get_event_loop()
-                        result = await loop.run_in_executor(None, operation, *args, **kwargs)
-                    
-                    if attempt > 0:
-                        self.error_stats['successful_retries'] += 1
-                        self.logger.info(f"Operation {operation_name} succeeded on attempt {attempt + 1}")
-                    
-                    return result
-                    
-                except RetryableError as e:
-                    self.error_stats['retryable_errors'] += 1
-                    
-                    if attempt < self.max_retries:
-                        wait_time = 2 ** attempt  # Exponential backoff
-                        self.logger.warning(f"Retryable error in {operation_name} (attempt {attempt + 1}): {str(e)}. Retrying in {wait_time} seconds...")
-                        await asyncio.sleep(wait_time)
-                    else:
-                        self.logger.error(f"Operation {operation_name} failed after {self.max_retries} retries: {str(e)}")
-                        raise
-                        
-                except Exception as e:
-                    self.error_stats['fatal_errors'] += 1
-                    self.logger.error(f"Non-retryable error in {operation_name}", 
-                                    error_type=type(e).__name__, 
-                                    error=str(e),
-                                    exc_info=True)
-                    raise
-        finally:
-            self.logger.clear_context()
-
-    def log_error(self, error: Exception, context: Dict[str, Any]) -> None:
-        """Log error with context."""
-        self.error_stats['total_errors'] += 1
-        error_type = type(error).__name__
-        
-        self.logger.add_context(**context)
-        self.logger.error(f"{error_type}: {str(error)}", 
-                         error_type=error_type,
-                         total_errors=self.error_stats['total_errors'],
-                         exc_info=True)
-        self.logger.clear_context()

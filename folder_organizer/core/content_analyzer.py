@@ -7,7 +7,7 @@ import mimetypes
 import magic
 import langdetect
 import re
-from korean_utils import KoreanTextHandler
+from ..utils.korean_utils import KoreanTextHandler
 
 class ContentAnalyzer:
     """Analyzes file content and suggests appropriate names using LLM."""

@@ -6,9 +6,9 @@ from typing import Dict, Any, Optional, Tuple
 import threading
 import json
 import re
-from config_manager import ConfigManager
-from error_handler import ErrorHandler, FileCategorizationError, FileOperationError, RetryableError
-from file_renamer import FileRenamer
+from ..utils.config_manager import ConfigManager
+from ..utils.error_handler import ErrorHandler, FileCategorizationError, FileOperationError, RetryableError
+from .file_renamer import FileRenamer
 
 class FileOrganizer:
     def __init__(self, config_manager: ConfigManager = None):
