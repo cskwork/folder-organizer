@@ -8,8 +8,8 @@ import sys
 import os
 from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 def main():
     parser = argparse.ArgumentParser(description="Intelligent File Organizer")
@@ -20,16 +20,9 @@ def main():
     args = parser.parse_args()
     
     try:
-        if args.test_mode:
-            from src.services import configure_for_testing
-            configure_for_testing()
-        else:
-            from src.services import configure_for_production
-            configure_for_production()
-            
-        from src.ui import MainWindow
+        from folder_organizer import FileOrganizerGUI
         
-        app = MainWindow()
+        app = FileOrganizerGUI()
         app.mainloop()
         
     except ImportError as e:
