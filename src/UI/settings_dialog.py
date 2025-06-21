@@ -1,6 +1,6 @@
 import customtkinter as ctk
 from typing import Dict, Any
-from ..utils.config_manager import ConfigManager
+from Utils.config_manager import ConfigManager
 
 class SettingsDialog(ctk.CTkToplevel):
     def __init__(self, parent, config_manager: ConfigManager):
@@ -247,7 +247,7 @@ class SettingsDialog(ctk.CTkToplevel):
         }
         
         # Create temporary ContentAnalyzer with current settings
-        from ..core.content_analyzer import ContentAnalyzer
+        from Service.content_analyzer import ContentAnalyzer
         analyzer = ContentAnalyzer(None)
         analyzer.provider = provider
         analyzer.providers_config = llm_config["providers"]

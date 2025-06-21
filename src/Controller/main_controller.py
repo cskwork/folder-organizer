@@ -5,13 +5,13 @@ import os
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Any
-from .core.file_analyzer import FileAnalyzer
-from .core.file_organizer import FileOrganizer
-from .utils.config_manager import ConfigManager
-from .ui.settings_dialog import SettingsDialog
+from Service.file_analyzer import FileAnalyzer
+from Service.file_organizer import FileOrganizer
+from Utils.config_manager import ConfigManager
+from UI.settings_dialog import SettingsDialog
 from CTkMessagebox import CTkMessagebox
-from .config.design_tokens import get_component_style, get_colors, get_spacing, ComponentSize, ThemeMode
-from .config.logging_config import StructuredLogger
+from Config.design_tokens import get_component_style, get_colors, get_spacing, ComponentSize, ThemeMode
+from Config.logging_config import StructuredLogger
 import threading
 
 class FileOrganizerGUI(ctk.CTk):
