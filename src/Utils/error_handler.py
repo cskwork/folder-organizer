@@ -1,7 +1,7 @@
 import logging
 from typing import Optional, Any, Callable
 from pathlib import Path
-from ..config.logging_config import StructuredLogger
+from Config.logging_config import StructuredLogger
 
 class FileOrganizerError(Exception):
     """Base exception class for file organizer errors"""

@@ -11,11 +11,14 @@ from pathlib import Path
 from typing import Dict, Any
 from unittest.mock import Mock, AsyncMock
 
+# Add src to path
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'src'))
+
 # Import the interfaces and implementations
-from di_container import DIContainer
-from interfaces import *
-from service_configuration import configure_for_testing
-from config_manager import ConfigManager
+from IService import IFileAnalyzer, IFileOrganizer
+from Utils.config_manager import ConfigManager
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -26,8 +29,8 @@ def event_loop():
 
 @pytest.fixture
 def mock_container():
-    """Create a DI container with mock services for testing."""
-    return configure_for_testing()
+    """Create a simple mock container for testing."""
+    return Mock()
 
 @pytest.fixture
 def temp_directory():
@@ -66,8 +69,24 @@ def sample_files(temp_directory):
 @pytest.fixture
 def mock_config_manager():
     """Create a mock configuration manager."""
-    mock = Mock(spec=IConfigManager)
-    mock.get_setting.return_value = True
+    mock = Mock()
+
+    def get_setting_se(key, default=None):
+        if key == "llm_config":
+            return {
+                "default_provider": "openrouter",
+                "providers": {
+                    "openrouter": {
+                        "url": "https://openrouter.ai/api/v1/chat/completions",
+                        "default_model": "google/gemini-pro"
+                    }
+                }
+            }
+        if key == "content_analysis":
+            return {}
+        return default if default is not None else True
+
+    mock.get_setting.side_effect = get_setting_se
     mock.get_organization_rules.return_value = {
         "use_content_analysis": True,
         "use_file_type": True,
@@ -82,7 +101,7 @@ def mock_config_manager():
 @pytest.fixture
 def mock_file_analyzer():
     """Create a mock file analyzer."""
-    mock = AsyncMock(spec=IFileAnalyzer)
+    mock = AsyncMock()
     mock.analyze_directory_async.return_value = {
         "/path/to/file1.txt": {
             "file_type": "txt",
@@ -105,7 +124,7 @@ def mock_file_analyzer():
 @pytest.fixture
 def mock_content_analyzer():
     """Create a mock content analyzer."""
-    mock = AsyncMock(spec=IContentAnalyzer)
+    mock = AsyncMock()
     mock.analyze_content_async.return_value = {
         "success": True,
         "category": "projects",
@@ -119,7 +138,7 @@ def mock_content_analyzer():
 @pytest.fixture
 def mock_file_organizer():
     """Create a mock file organizer."""
-    mock = AsyncMock(spec=IFileOrganizer)
+    mock = AsyncMock()
     mock.organize_files_async.return_value = None
     mock.determine_para_category.return_value = ("projects", "development")
     mock.get_stats.return_value = {
@@ -136,7 +155,7 @@ def mock_file_organizer():
 @pytest.fixture
 def mock_file_renamer():
     """Create a mock file renamer."""
-    mock = AsyncMock(spec=IFileRenamer)
+    mock = AsyncMock()
     mock.rename_file_async.return_value = "/new/path/to/file.txt"
     mock.generate_safe_name.return_value = "safe_filename.txt"
     return mock
@@ -144,7 +163,7 @@ def mock_file_renamer():
 @pytest.fixture
 def mock_error_handler():
     """Create a mock error handler."""
-    mock = AsyncMock(spec=IErrorHandler)
+    mock = AsyncMock()
     mock.retry_operation_async.side_effect = lambda op, *args, **kwargs: op(*args, **kwargs)
     mock.log_error = Mock()
     return mock
@@ -152,7 +171,7 @@ def mock_error_handler():
 @pytest.fixture
 def mock_ui_service():
     """Create a mock UI service."""
-    mock = Mock(spec=IUIService)
+    mock = Mock()
     mock.show_message = Mock()
     mock.show_error = Mock()
     mock.show_success = Mock()
@@ -163,7 +182,7 @@ def mock_ui_service():
 @pytest.fixture
 def mock_progress_reporter():
     """Create a mock progress reporter."""
-    mock = Mock(spec=IProgressReporter)
+    mock = Mock()
     mock.report_progress = Mock()
     mock.is_cancelled.return_value = False
     mock.cancel = Mock()

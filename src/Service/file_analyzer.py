@@ -16,7 +16,7 @@ import mimetypes
 import yaml
 from xml.etree import ElementTree
 import re
-from .content_analyzer import ContentAnalyzer
+from Service.content_analyzer import ContentAnalyzer
 
 class FileAnalyzer:
     def __init__(self, config_manager=None):

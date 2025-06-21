@@ -3,7 +3,7 @@ from typing import Dict, Any
 from pathlib import Path
 import shutil
 import re
-from ..utils.korean_utils import KoreanTextHandler
+from Utils.korean_utils import KoreanTextHandler
 
 class FileRenamer:
     """Handles safe file renaming operations."""
